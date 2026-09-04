@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle Entregas | Shopee Style</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+
+    <header class="topbar">
+        <div class="logo-area">
+            <div class="logo-icon">🛵</div>
+            <div class="logo-text">
+                <h1>Controle Entregas</h1>
+                <p>Gestão de trabalhos e pagamentos</p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="icon-btn" aria-label="Menu" onclick="toggleMenu()">
+                <i class="ph ph-list"></i>
+            </button>
+            <div class="user-profile">
+                <button class="icon-btn"><i class="ph ph-bell"></i></button>
+                <button class="icon-btn"><i class="ph ph-gear"></i></button>
+                <div class="avatar">
+                    <i class="ph ph-user"></i>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        
+        <section class="dashboard">
+            <div class="card stat-card">
+                <div class="card-header">
+                    <h2><i class="ph ph-user-circle"></i> Isabella</h2>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-item"><span class="label">Total trabalhado:</span> <span id="isabella-total-trabalhado" class="value">R$ 0,00</span></div>
+                    <div class="stat-item"><span class="label">Total pago:</span> <span id="isabella-total-pago" class="value success">R$ 0,00</span></div>
+                    <div class="stat-item"><span class="label">Saldo pendente:</span> <span id="isabella-saldo-pendente" class="value warning">R$ 0,00</span></div>
+                    <div class="stat-item"><span class="label">Dias trabalhados:</span> <span id="isabella-dias-trabalhados" class="value">0 dias</span></div>
+                </div>
+            </div>
+
+            <div class="card stat-card">
+                <div class="card-header">
+                    <h2><i class="ph ph-user-circle"></i> Pietro</h2>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-item"><span class="label">Total trabalhado:</span> <span id="pietro-total-trabalhado" class="value">R$ 0,00</span></div>
+                    <div class="stat-item"><span class="label">Total pago:</span> <span id="pietro-total-pago" class="value success">R$ 0,00</span></div>
+                    <div class="stat-item"><span class="label">Saldo pendente:</span> <span id="pietro-saldo-pendente" class="value warning">R$ 0,00</span></div>
+                    <div class="stat-item"><span class="label">Dias trabalhados:</span> <span id="pietro-dias-trabalhados" class="value">0 dias</span></div>
+                </div>
+            </div>
+
+            <div class="card stat-card highlight">
+                <div class="card-header">
+                    <h2><i class="ph ph-wallet"></i> Total Geral</h2>
+                </div>
+                <div class="stat-content total-geral">
+                    <span class="label">Total em aberto:</span>
+                    <span id="total-geral-aberto" class="value highlight-value">R$ 0,00</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="actions-grid">
+            <div class="card form-card">
+                <h3><i class="ph ph-moped"></i> Registrar Trabalho</h3>
+                <form id="form-trabalho">
+                    <div class="input-group">
+                        <label>Pessoa</label>
+                        <select id="pessoa-trabalho" required>
+                            <option value="">Selecione...</option>
+                            <option value="isabella">Isabella</option>
+                            <option value="pietro">Pietro</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Data do trabalho</label>
+                        <input id="data-trabalho" type="date" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Valor (R$)</label>
+                        <input id="valor-trabalho" type="number" step="0.01" placeholder="0,00" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Adicionar Trabalho</button>
+                </form>
+            </div>
+
+            <div class="card form-card">
+                <h3><i class="ph ph-currency-circle-dollar"></i> Registrar Pagamento</h3>
+                <form id="form-pagamento">
+                    <div class="input-group">
+                        <label>Pessoa</label>
+                        <select id="pessoa-pagamento" required>
+                            <option value="">Selecione...</option>
+                            <option value="isabella">Isabella</option>
+                            <option value="pietro">Pietro</option>
+                        </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Data ref. ao trabalho</label>
+                        <input id="data-pagamento" type="date" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Valor pago (R$)</label>
+                        <input id="valor-pagamento" type="number" step="0.01" placeholder="0,00" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Confirmar Pagamento</button>
+                </form>
+            </div>
+        </section>
+
+        <section class="summary-grid">
+            <div class="card">
+                <h3><i class="ph ph-chart-pie-slice"></i> Resumo Financeiro</h3>
+                <div class="summary-list">
+                    <div class="summary-box">
+                        <h4>Isabella</h4>
+                        <ul>
+                            <li>Dias trab: <strong id="resumo-isabella-dias">0</strong></li>
+
+                            <li>Total: <strong id="resumo-isabella-total">R$ 0,00</strong></li>
+
+                            <li>Recebido: 
+                                <strong id="resumo-isabella-recebido" class="success">
+                                    R$ 0,00
+                                </strong>
+                            </li>
+
+                            <li>Falta: 
+                                <strong id="resumo-isabella-falta" class="warning">
+                                    R$ 0,00
+                                </strong>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="summary-box">
+                        <h4>Pietro</h4>
+                        <ul>
+                            <li>Dias trab: <strong id="resumo-pietro-dias">0</strong></li>
+                            <li>Total: <strong id="resumo-pietro-total">R$ 0,00</strong></li>
+                            <li>Recebido: <strong id="resumo-pietro-recebido" class="success">R$ 0,00</strong></li>
+                            <li>Falta: <strong id="resumo-pietro-falta" class="warning">R$ 0,00</strong></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3><i class="ph ph-warning-circle"></i> Pagamentos Pendentes</h3>
+                <div id="pagamentos-pendentes" class="pending-list"></div>
+            </div>
+        </section>
+
+        <section class="history">
+            <div class="card">
+                <div class="history-header">
+                    <h3><i class="ph ph-clock-counter-clockwise"></i> Histórico</h3>
+                    <div class="filters">
+                        <div class="search-box">
+                            <i class="ph ph-magnifying-glass"></i>
+                            <input id="busca-historico" type="text" placeholder="Buscar...">
+                        </div>
+                        <select id="filtro-pessoa" class="filter-select">
+                            <option value="">Todas as pessoas</option>
+                            <option value="isabella">Isabella</option>
+                            <option value="pietro">Pietro</option>
+                        </select>
+                        <select id="filtro-data" class="filter-select">
+                            <option value="">Últimos 30 dias</option>
+                            <option value="7">Últimos 7 dias</option>
+                            <option value="all">Todo o período</option>
+                        </select>
+                        <button class="btn btn-outline"><i class="ph ph-sort-ascending"></i> Ordenar</button>
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Pessoa</th>
+                                <th>Data</th>
+                                <th>Tipo</th>
+                                <th>Valor</th>
+                                <th>Status</th>
+                                <th>Alteração</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historico-tabela"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="modal-alterar" class="modal">
+
+        <div class="modal-content">
+
+            <h3>Alterar valor</h3>
+
+
+            <input 
+            id="novo-valor"
+            type="number"
+            step="0.01"
+            placeholder="Novo valor">
+
+
+            <textarea
+            id="motivo-alteracao"
+            placeholder="Motivo da alteração">
+            </textarea>
+
+
+            <button 
+            class="btn btn-primary"
+            onclick="salvarAlteracao()">
+
+            Salvar
+
+            </button>
+
+
+            <button 
+            class="btn btn-outline"
+            onclick="fecharAlteracao()">
+
+            Cancelar
+
+            </button>
+
+
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="script.js"></script>
+</body>
+</html>
