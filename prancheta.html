@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prancheta - Controle de Gastos e Rotas</title>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        :root {
+            --primary: #ee4d2d;
+            --primary-hover: #d74326;
+            --primary-light: #fff0ed;
+            --white: #ffffff;
+            --bg-color: #f5f5f5;
+            --text-dark: #222222;
+            --text-muted: #757575;
+            --border: #ebebeb;
+            --success: #26aa99;
+            --warning: #ffb500;
+            --danger: #ee4d2d;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+            --radius-md: 8px;
+            --radius-lg: 12px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-dark);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Cabeçalho */
+        .topbar {
+            background-color: var(--white);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 24px;
+            box-shadow: var(--shadow-sm);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-area { display: flex; align-items: center; gap: 12px; }
+        
+        .back-btn {
+            background: none; border: none; font-size: 24px;
+            color: var(--text-dark); cursor: pointer; transition: 0.2s;
+            display: flex; align-items: center; justify-content: center;
+            padding: 4px; border-radius: var(--radius-md);
+        }
+        .back-btn:hover { background-color: var(--bg-color); color: var(--primary); }
+
+        .logo-icon {
+            font-size: 28px; background: var(--primary-light);
+            color: var(--primary); padding: 8px; border-radius: var(--radius-md);
+        }
+
+        .logo-text h1 { font-size: 18px; font-weight: 700; color: var(--primary); }
+        .logo-text p { font-size: 12px; color: var(--text-muted); }
+        
+        .avatar {
+            width: 36px; height: 36px; background-color: var(--primary);
+            color: var(--white); border-radius: 50%; display: flex;
+            align-items: center; justify-content: center; font-size: 20px;
+        }
+
+        /* Layout */
+        .container { max-width: 1200px; margin: 24px auto; padding: 0 16px; display: flex; flex-direction: column; gap: 24px; }
+        
+        .card {
+            background: var(--white); border-radius: var(--radius-lg);
+            padding: 20px; box-shadow: var(--shadow-sm); border: 1px solid var(--border);
+        }
+        .card h3 { font-size: 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        .card h3 i { color: var(--primary); font-size: 20px; }
+
+        /* Resumo Financeiro */
+        .summary-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;
+        }
+        .summary-card {
+            background: var(--white); border-radius: var(--radius-lg); padding: 20px;
+            box-shadow: var(--shadow-sm); border: 1px solid var(--border);
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .summary-card span { font-size: 14px; font-weight: 500; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+        .summary-card h2 { font-size: 24px; font-weight: 700; }
+        .border-success { border-left: 4px solid var(--success); }
+        .border-danger { border-left: 4px solid var(--danger); }
+        .border-primary { border-left: 4px solid var(--primary); }
+        .text-success { color: var(--success); }
+        .text-danger { color: var(--danger); }
+        .text-primary { color: var(--primary); }
+
+        /* Forms */
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+        .form-grid-full { grid-column: 1 / -1; }
+        .input-group { margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px; }
+        .input-group label { font-size: 13px; font-weight: 500; color: var(--text-muted); }
+        .input-group input, .input-group select, .input-group textarea {
+            width: 100%; padding: 10px 12px; border: 1px solid var(--border);
+            border-radius: var(--radius-md); font-size: 14px; outline: none; transition: 0.2s;
+        }
+        .input-group input:focus, .input-group select:focus, .input-group textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+        .radio-group { display: flex; gap: 16px; padding: 10px 0; }
+        .radio-group label { display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
+
+        .btn {
+            width: 100%; padding: 12px; border: none; border-radius: var(--radius-md);
+            font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s;
+            display: flex; justify-content: center; align-items: center; gap: 8px;
+        }
+        .btn-primary { background-color: var(--primary); color: var(--white); }
+        .btn-primary:hover { background-color: var(--primary-hover); }
+        .btn-outline { background-color: transparent; border: 1px solid var(--border); color: var(--text-dark); }
+        .btn-outline:hover { background-color: var(--bg-color); }
+
+        /* Filtros & Tabela */
+        .filters-bar {
+            display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
+            background: var(--bg-color); padding: 12px; border-radius: var(--radius-md);
+        }
+        .filters-bar .input-group { margin-bottom: 0; flex: 1; min-width: 150px; }
+        
+        .table-container { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 950px; }
+        th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 14px; vertical-align: middle; }
+        th { color: var(--text-muted); font-weight: 500; background-color: #fafafa; }
+        tr:hover td { background-color: #fafafa; }
+
+        .type-badge {
+            display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;
+        }
+        .type-rota { background: var(--primary-light); color: var(--primary); }
+        .type-km { background: #e6f4ea; color: #1e8e3e; }
+        .type-abast { background: #fce8e6; color: #d93025; }
+        .type-manut { background: #fff3e0; color: #e65100; }
+
+        /* Modal */
+        .modal {
+            display: none; position: fixed; z-index: 999; left: 0; top: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.45); align-items: center; justify-content: center;
+        }
+        .modal-content {
+            background: white; width: 500px; max-height: 90vh; overflow-y: auto;
+            padding: 25px; border-radius: 15px; display: flex; flex-direction: column; gap: 15px;
+        }
+        .modal-content h3 { margin: 0; font-size: 20px; }
+        .modal-actions { display: flex; gap: 10px; margin-top: 10px; }
+        .modal-actions button { flex: 1; }
+        .hidden-group { display: none !important; }
+
+        /* Toasts */
+        .toast-container { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 12px; z-index: 1000; }
+        .toast {
+            background-color: var(--white); padding: 16px; border-radius: var(--radius-md);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 12px;
+            min-width: 280px; border-left: 4px solid var(--primary); animation: slideIn 0.3s ease forwards;
+        }
+        .toast.success { border-left-color: var(--success); }
+        .toast i { font-size: 24px; }
+        .toast.success i { color: var(--success); }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+    </style>
+</head>
+<body>
+
+    <header class="topbar">
+        <div class="logo-area">
+            <button class="back-btn" onclick="history.back()" title="Voltar">
+                <i class="ph ph-arrow-left"></i>
+            </button>
+            <div class="logo-icon"><i class="ph ph-clipboard-text"></i></div>
+            <div class="logo-text">
+                <h1>Prancheta de Rotas</h1>
+                <p>Controle de Gastos e Pagamentos</p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <div class="avatar"><i class="ph ph-user"></i></div>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- Resumo Financeiro -->
+        <div class="summary-grid">
+            <div class="summary-card border-success">
+                <span><i class="ph ph-trend-up"></i> Total Recebido</span>
+                <h2 id="total-recebido" class="text-success">R$ 0,00</h2>
+            </div>
+            <div class="summary-card border-danger">
+                <span><i class="ph ph-trend-down"></i> Total Gasto</span>
+                <h2 id="total-gasto" class="text-danger">R$ 0,00</h2>
+            </div>
+            <div class="summary-card border-primary">
+                <span><i class="ph ph-wallet"></i> Saldo Atual</span>
+                <h2 id="total-saldo" class="text-primary">R$ 0,00</h2>
+            </div>
+        </div>
+        
+        <!-- Formulário: Dados da Rota -->
+        <div class="card">
+            <h3><i class="ph ph-map-pin-line"></i> Dados da Rota</h3>
+            <form id="form-rota">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>Data do Trabalho</label>
+                        <input type="date" id="rota-data" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Número da Rota</label>
+                        <input type="text" id="rota-numero" placeholder="Ex: Rota 45" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Tipo de Rota</label>
+                        <div class="radio-group">
+                            <label><input type="radio" name="rota-tipo" value="Flex" checked> Flex</label>
+                            <label><input type="radio" name="rota-tipo" value="Frota"> Frota</label>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Valor Principal (R$)</label>
+                        <input type="number" id="rota-valor" step="0.01" placeholder="0.00" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Qtd Pacotes</label>
+                        <input type="number" id="rota-pacotes" placeholder="0" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Qtd Devoluções</label>
+                        <input type="number" id="rota-devolucoes" placeholder="0" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Valor Km Pago (R$)</label>
+                        <input type="number" id="rota-valorkm" step="0.01" placeholder="0.00" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Valor Pedágio (R$)</label>
+                        <input type="number" id="rota-pedagio" step="0.01" placeholder="0.00" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top:8px;">
+                    <i class="ph ph-floppy-disk"></i> Salvar Rota
+                </button>
+            </form>
+        </div>
+
+        <!-- Formulário: Quilometragem -->
+        <div class="card">
+            <h3><i class="ph ph-gauge"></i> Quilometragem</h3>
+            <form id="form-km">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>Data da Quilometragem</label>
+                        <input type="date" id="km-data" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Km rodado no dia</label>
+                        <input type="number" id="km-rodado" step="0.1" placeholder="0.0" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top:8px;">
+                    <i class="ph ph-floppy-disk"></i> Salvar Quilometragem
+                </button>
+            </form>
+        </div>
+
+        <!-- Formulário: Abastecimento -->
+        <div class="card">
+            <h3><i class="ph ph-gas-pump"></i> Abastecimento</h3>
+            <form id="form-abastecimento">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>Data do Abastecimento</label>
+                        <input type="date" id="abast-data" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Tipo de Combustível</label>
+                        <select id="abast-tipo" required>
+                            <option value="Álcool">Álcool</option>
+                            <option value="Gasolina">Gasolina</option>
+                            <option value="Diesel">Diesel</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Valor Abastecido (R$)</label>
+                        <input type="number" id="abast-valor" step="0.01" placeholder="0.00" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top:8px;">
+                    <i class="ph ph-floppy-disk"></i> Salvar Abastecimento
+                </button>
+            </form>
+        </div>
+
+        <!-- Formulário: Manutenção do Carro -->
+        <div class="card">
+            <h3><i class="ph ph-wrench"></i> Manutenção do Carro</h3>
+            <form id="form-manutencao">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>Data da Manutenção</label>
+                        <input type="date" id="manut-data" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Categoria</label>
+                        <select id="manut-categoria" required>
+                            <option value="Troca de Óleo">Troca de Óleo</option>
+                            <option value="Mecânica">Mecânica</option>
+                            <option value="Pneu">Pneu</option>
+                            <option value="Outros">Outros</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Valor Total (R$)</label>
+                        <input type="number" id="manut-valor" step="0.01" placeholder="0.00" required>
+                    </div>
+                    <div class="input-group">
+                        <label>O que foi feito?</label>
+                        <input type="text" id="manut-feito" placeholder="Ex: Alinhamento e balanceamento..." required>
+                    </div>
+                    <div class="input-group">
+                        <label>Houve algum serviço adicional?</label>
+
+                        <select id="manut-tem-extra" required>
+                            <option value="nao">Não</option>
+                            <option value="sim">Sim</option>
+                        </select>
+                    </div>
+
+                    <div id="manut-extra-campos" class="form-grid-full" style="display: none;">
+                        <div class="form-grid">
+
+                            <div class="input-group">
+                                <label>Qual foi o serviço adicional?</label>
+
+                                <input
+                                    type="text"
+                                    id="manut-extra-desc"
+                                    placeholder="Ex: Lavagem do carro..."
+                                >
+                            </div>
+
+                            <div class="input-group">
+                                <label>Valor do Serviço Extra (R$)</label>
+
+                                <input
+                                    type="number"
+                                    id="manut-extra-valor"
+                                    step="0.01"
+                                    min="0"
+                                    placeholder="0.00"
+                                >
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top:8px;">
+                    <i class="ph ph-floppy-disk"></i> Salvar Manutenção
+                </button>
+            </form>
+        </div>
+
+        <!-- Histórico e Filtros -->
+        <div class="card">
+            <h3><i class="ph ph-list-dashes"></i> Histórico Completo</h3>
+            
+            <div class="filters-bar">
+                <div class="input-group">
+                    <label>Filtrar por Tipo</label>
+                    <select id="filter-type" onchange="atualizarTabela()">
+                        <option value="Todos">Todos os Registros</option>
+                        <option value="Rota">Rotas</option>
+                        <option value="Quilometragem">Quilometragem</option>
+                        <option value="Abastecimento">Abastecimento</option>
+                        <option value="Manutenção">Manutenção</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Filtrar por Data Mínima</label>
+                    <input type="date" id="filter-date" onchange="atualizarTabela()">
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Tipo</th>
+                            <th>Detalhes</th>
+                            <th>Valor Principal</th>
+                            <th>Valores Diversos/Extras</th>
+                            <th>Valor Total</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historico-tbody">
+                        <!-- Renderizado via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Modal Universal de Edição -->
+    <div id="modal-alterar" class="modal">
+        <div class="modal-content">
+            <h3>Alterar Registro</h3>
+            
+            <div class="input-group">
+                <label>Data do Registro</label>
+                <input type="date" id="edit-data">
+            </div>
+
+            <!-- Grupo: ROTA -->
+            <div id="group-edit-rota" class="hidden-group">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>Número da Rota</label>
+                        <input type="text" id="edit-rota-numero">
+                    </div>
+                    <div class="input-group">
+                        <label>Tipo (Flex/Frota)</label>
+                        <input type="text" id="edit-rota-tipo">
+                    </div>
+                    <div class="input-group">
+                        <label>Valor Principal (R$)</label>
+                        <input type="number" id="edit-rota-valor" step="0.01">
+                    </div>
+                    <div class="input-group">
+                        <label>Pacotes</label>
+                        <input type="number" id="edit-rota-pacotes">
+                    </div>
+                    <div class="input-group">
+                        <label>Devoluções</label>
+                        <input type="number" id="edit-rota-devolucoes">
+                    </div>
+                    <div class="input-group">
+                        <label>Valor Km Pago (R$)</label>
+                        <input type="number" id="edit-rota-valorkm" step="0.01">
+                    </div>
+                    <div class="input-group">
+                        <label>Valor Pedágio (R$)</label>
+                        <input type="number" id="edit-rota-pedagio" step="0.01">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grupo: QUILOMETRAGEM -->
+            <div id="group-edit-km" class="hidden-group">
+                <div class="input-group">
+                    <label>Km Rodado no Dia</label>
+                    <input type="number" id="edit-km-rodado" step="0.1">
+                </div>
+            </div>
+
+            <!-- Grupo: ABASTECIMENTO -->
+            <div id="group-edit-abast" class="hidden-group">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>Tipo de Combustível</label>
+                        <select id="edit-abast-tipo">
+                            <option value="Álcool">Álcool</option>
+                            <option value="Gasolina">Gasolina</option>
+                            <option value="Diesel">Diesel</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Valor Abastecido (R$)</label>
+                        <input type="number" id="edit-abast-valor" step="0.01">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grupo: MANUTENÇÃO -->
+            <div id="group-edit-manut" class="hidden-group">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>Categoria</label>
+                        <select id="edit-manut-categoria">
+                            <option value="Troca de Óleo">Troca de Óleo</option>
+                            <option value="Mecânica">Mecânica</option>
+                            <option value="Pneu">Pneu</option>
+                            <option value="Outros">Outros</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Valor Total (R$)</label>
+                        <input type="number" id="edit-manut-valor" step="0.01">
+                    </div>
+                    <div class="input-group form-grid-full">
+                        <label>O que foi feito?</label>
+                        <input type="text" id="edit-manut-feito">
+                    </div>
+                    <div class="input-group">
+                        <label>Teve valor extra?</label>
+                        <input type="text" id="edit-manut-extra-desc">
+                    </div>
+                    <div class="input-group">
+                        <label>Valor Extra (R$)</label>
+                        <input type="number" id="edit-manut-extra-valor" step="0.01">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Motivo Geral -->
+            <div class="input-group">
+                <label>Motivo da Alteração</label>
+                <textarea id="edit-motivo" placeholder="Descreva por que está alterando..." required></textarea>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="fecharAlteracao()">Cancelar</button>
+                <button class="btn btn-primary" onclick="salvarAlteracao()">Salvar Alteração</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toasts -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="prancheta.js"></script>
+</body>
+</html>
