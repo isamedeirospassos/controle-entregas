@@ -30,6 +30,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     configurarCalculoPacotes();
+    configurarCalculoKm();
     configurarServicoExtra();
     configurarFormularioUnificado();
 
@@ -78,6 +79,44 @@ function configurarCalculoPacotes() {
 
     inputPacotes.addEventListener("input", recalcular);
     inputDevolucoes.addEventListener("input", recalcular);
+}
+
+// ======================================================
+// CÁLCULO AUTOMÁTICO DE QUILOMETRAGEM
+// ======================================================
+// Km rodado no dia = Km final - Km inicial
+
+function configurarCalculoKm() {
+    const inputInicial = document.getElementById("km-inicial");
+    const inputFinal = document.getElementById("km-final");
+    const inputRodado = document.getElementById("km-rodado");
+
+    if (!inputInicial || !inputFinal || !inputRodado) return;
+
+    function recalcularKm() {
+        const valInicial = inputInicial.value.trim();
+        const valFinal = inputFinal.value.trim();
+
+        if (valInicial === "" || valFinal === "") {
+            inputRodado.value = "";
+            return;
+        }
+
+        const inicial = parseFloat(valInicial.replace(',', '.'));
+        const final = parseFloat(valFinal.replace(',', '.'));
+
+        if (!isNaN(inicial) && !isNaN(final)) {
+            if (final >= inicial) {
+                const diferenca = Math.round((final - inicial) * 100) / 100;
+                inputRodado.value = diferenca;
+            } else {
+                inputRodado.value = "";
+            }
+        }
+    }
+
+    inputInicial.addEventListener("input", recalcularKm);
+    inputFinal.addEventListener("input", recalcularKm);
 }
 
 // ======================================================
@@ -183,6 +222,8 @@ function converterRegistro(item) {
         valorPedagio: Number(item.valor_pedagio || 0),
 
         // QUILOMETRAGEM
+        kmInicial: item.km_inicial !== null && item.km_inicial !== undefined ? Number(item.km_inicial) : null,
+        kmFinal: item.km_final !== null && item.km_final !== undefined ? Number(item.km_final) : null,
         kmRodado: Number(item.km_rodado || 0),
 
         // ABASTECIMENTO
@@ -246,7 +287,12 @@ function configurarFormularioUnificado() {
         const valorPedagio = parseFloat(document.getElementById("rota-pedagio")?.value) || 0;
 
         // Ler Quilometragem
-        const kmRodado = parseFloat(document.getElementById("km-rodado")?.value) || 0;
+        const kmInicial = document.getElementById("km-inicial")?.value ? parseFloat(document.getElementById("km-inicial").value.replace(',', '.')) : null;
+        const kmFinal = document.getElementById("km-final")?.value ? parseFloat(document.getElementById("km-final").value.replace(',', '.')) : null;
+        let kmRodado = parseFloat(document.getElementById("km-rodado")?.value) || 0;
+        if (kmRodado <= 0 && kmInicial !== null && kmFinal !== null && kmFinal >= kmInicial) {
+            kmRodado = Math.round((kmFinal - kmInicial) * 100) / 100;
+        }
 
         // Ler Abastecimento
         const tipoCombustivel = document.getElementById("abast-tipo")?.value || "";
@@ -276,6 +322,8 @@ function configurarFormularioUnificado() {
             valor: valorPrincipal,
             valor_km: valorKm,
             valor_pedagio: valorPedagio,
+            km_inicial: kmInicial,
+            km_final: kmFinal,
             km_rodado: kmRodado,
             tipo_combustivel: tipoCombustivel || null,
             valor_abastecido: valorAbastecido,
@@ -325,15 +373,17 @@ function configurarFormularioUnificado() {
         // Tentar salvar com todas as colunas
         salvarResultado = await persistir(registroCompleto, idAlvo);
 
-        // Se houver erro de coluna inexistente (ex: alimentacao, perfumaria, outros_gastos ainda não criadas via SQL)
+        // Se houver erro de coluna inexistente (ex: alimentacao, perfumaria, outros_gastos, km_inicial ainda não criadas via SQL)
         if (salvarResultado.error && (salvarResultado.error.code === "42703" || salvarResultado.error.message?.includes("does not exist"))) {
-            console.warn("Colunas de despesas não encontradas no Supabase. Tentando salvar sem elas...", salvarResultado.error);
-            const semDespesas = { ...registroCompleto };
-            delete semDespesas.alimentacao;
-            delete semDespesas.perfumaria;
-            delete semDespesas.outros_gastos;
+            console.warn("Colunas opcionais não encontradas no Supabase. Tentando salvar sem elas...", salvarResultado.error);
+            const dadosSeguros = { ...registroCompleto };
+            delete dadosSeguros.alimentacao;
+            delete dadosSeguros.perfumaria;
+            delete dadosSeguros.outros_gastos;
+            delete dadosSeguros.km_inicial;
+            delete dadosSeguros.km_final;
 
-            salvarResultado = await persistir(semDespesas, idAlvo);
+            salvarResultado = await persistir(dadosSeguros, idAlvo);
             avisoSQLNecessario = true;
         }
 
@@ -367,7 +417,8 @@ function configurarFormularioUnificado() {
 function limparFormularioParcial() {
     const ids = [
         "rota-numero", "rota-pacotes", "rota-devolucoes", "rota-pacotes-entregues",
-        "rota-valor", "rota-valorkm", "rota-pedagio", "km-rodado",
+        "rota-valor", "rota-valorkm", "rota-pedagio",
+        "km-inicial", "km-final", "km-rodado",
         "abast-valor", "manut-valor", "manut-feito", "manut-extra-desc", "manut-extra-valor",
         "despesa-alimentacao", "despesa-perfumaria", "despesa-outros"
     ];
@@ -480,7 +531,7 @@ function atualizarTabela() {
     if (diasOrdenados.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="4" style="text-align:center; padding:24px; color:var(--text-muted);">
+                <td colspan="5" style="text-align:center; padding:24px; color:var(--text-muted);">
                     Nenhum registro encontrado no histórico.
                 </td>
             </tr>
@@ -491,7 +542,9 @@ function atualizarTabela() {
     diasOrdenados.forEach(dia => {
         const tr = document.createElement("tr");
 
+        const totalRecebido = dia.valorPrincipal + dia.kmPedagio;
         const totalGastos = dia.gastos;
+        const saldoDia = totalRecebido - totalGastos;
         const urlDetalhes = `detalhes-dia.html?data=${encodeURIComponent(dia.data)}`;
 
         tr.innerHTML = `
@@ -509,6 +562,11 @@ function atualizarTabela() {
             <td>
                 <span class="text-danger" style="font-weight:600;">
                     ${formatMoeda(totalGastos)}
+                </span>
+            </td>
+            <td>
+                <span class="${saldoDia >= 0 ? 'text-success' : 'text-danger'}" style="font-weight:600;">
+                    ${formatMoeda(saldoDia)}
                 </span>
             </td>
             <td>

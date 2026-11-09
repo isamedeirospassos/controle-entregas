@@ -37,6 +37,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     configurarCalculoPacotes();
+    configurarCalculoKm();
     configurarServicoExtra();
     configurarFormulario();
 
@@ -85,6 +86,8 @@ async function carregarDadosDia(dataStr) {
         valor: 0,
         valor_km: 0,
         valor_pedagio: 0,
+        km_inicial: null,
+        km_final: null,
         km_rodado: 0,
         tipo_combustivel: "",
         valor_abastecido: 0,
@@ -108,6 +111,8 @@ async function carregarDadosDia(dataStr) {
         if (r.valor) consolidado.valor = Math.max(consolidado.valor, Number(r.valor));
         if (r.valor_km) consolidado.valor_km = Math.max(consolidado.valor_km, Number(r.valor_km));
         if (r.valor_pedagio) consolidado.valor_pedagio = Math.max(consolidado.valor_pedagio, Number(r.valor_pedagio));
+        if (r.km_inicial !== undefined && r.km_inicial !== null) consolidado.km_inicial = Number(r.km_inicial);
+        if (r.km_final !== undefined && r.km_final !== null) consolidado.km_final = Number(r.km_final);
         if (r.km_rodado) consolidado.km_rodado = Math.max(consolidado.km_rodado, Number(r.km_rodado));
         if (r.tipo_combustivel) consolidado.tipo_combustivel = r.tipo_combustivel;
         if (r.valor_abastecido) consolidado.valor_abastecido = Math.max(consolidado.valor_abastecido, Number(r.valor_abastecido));
@@ -149,6 +154,8 @@ async function carregarDadosDia(dataStr) {
     document.getElementById("detalhe-rota-valorkm").value = consolidado.valor_km > 0 ? consolidado.valor_km.toFixed(2) : "";
     document.getElementById("detalhe-rota-pedagio").value = consolidado.valor_pedagio > 0 ? consolidado.valor_pedagio.toFixed(2) : "";
 
+    document.getElementById("detalhe-km-inicial").value = consolidado.km_inicial !== null ? consolidado.km_inicial : "";
+    document.getElementById("detalhe-km-final").value = consolidado.km_final !== null ? consolidado.km_final : "";
     document.getElementById("detalhe-km-rodado").value = consolidado.km_rodado > 0 ? consolidado.km_rodado : "";
     document.getElementById("detalhe-abast-tipo").value = consolidado.tipo_combustivel || "";
     document.getElementById("detalhe-abast-valor").value = consolidado.valor_abastecido > 0 ? consolidado.valor_abastecido.toFixed(2) : "";
@@ -222,6 +229,44 @@ function configurarCalculoPacotes() {
         const el = document.getElementById(id);
         if (el) el.addEventListener("input", recalcularTotais);
     });
+}
+
+// ======================================================
+// CÁLCULO AUTOMÁTICO DE QUILOMETRAGEM
+// ======================================================
+// Km rodado no dia = Km final - Km inicial
+
+function configurarCalculoKm() {
+    const inputInicial = document.getElementById("detalhe-km-inicial");
+    const inputFinal = document.getElementById("detalhe-km-final");
+    const inputRodado = document.getElementById("detalhe-km-rodado");
+
+    if (!inputInicial || !inputFinal || !inputRodado) return;
+
+    function recalcularKm() {
+        const valInicial = inputInicial.value.trim();
+        const valFinal = inputFinal.value.trim();
+
+        if (valInicial === "" || valFinal === "") {
+            inputRodado.value = "";
+            return;
+        }
+
+        const inicial = parseFloat(valInicial.replace(',', '.'));
+        const final = parseFloat(valFinal.replace(',', '.'));
+
+        if (!isNaN(inicial) && !isNaN(final)) {
+            if (final >= inicial) {
+                const diferenca = Math.round((final - inicial) * 100) / 100;
+                inputRodado.value = diferenca;
+            } else {
+                inputRodado.value = "";
+            }
+        }
+    }
+
+    inputInicial.addEventListener("input", recalcularKm);
+    inputFinal.addEventListener("input", recalcularKm);
 }
 
 // ======================================================
@@ -318,7 +363,13 @@ function configurarFormulario() {
         const valorKm = parseFloat(document.getElementById("detalhe-rota-valorkm")?.value) || 0;
         const valorPedagio = parseFloat(document.getElementById("detalhe-rota-pedagio")?.value) || 0;
 
-        const kmRodado = parseFloat(document.getElementById("detalhe-km-rodado")?.value) || 0;
+        const kmInicial = document.getElementById("detalhe-km-inicial")?.value ? parseFloat(document.getElementById("detalhe-km-inicial").value.replace(',', '.')) : null;
+        const kmFinal = document.getElementById("detalhe-km-final")?.value ? parseFloat(document.getElementById("detalhe-km-final").value.replace(',', '.')) : null;
+        let kmRodado = parseFloat(document.getElementById("detalhe-km-rodado")?.value) || 0;
+        if (kmRodado <= 0 && kmInicial !== null && kmFinal !== null && kmFinal >= kmInicial) {
+            kmRodado = Math.round((kmFinal - kmInicial) * 100) / 100;
+        }
+
         const tipoCombustivel = document.getElementById("detalhe-abast-tipo")?.value || "";
         const valorAbastecido = parseFloat(document.getElementById("detalhe-abast-valor")?.value) || 0;
 
@@ -346,6 +397,8 @@ function configurarFormulario() {
             valor: valorPrincipal,
             valor_km: valorKm,
             valor_pedagio: valorPedagio,
+            km_inicial: kmInicial,
+            km_final: kmFinal,
             km_rodado: kmRodado,
             tipo_combustivel: tipoCombustivel || null,
             valor_abastecido: valorAbastecido,
@@ -379,15 +432,17 @@ function configurarFormulario() {
 
             let resp = await updateRecord(dadosAtualizacao, idPrincipal);
 
-            // Tratamento se colunas de despesas ainda não existirem no Supabase
+            // Tratamento se colunas opcionais ainda não existirem no Supabase
             if (resp.error && (resp.error.code === "42703" || resp.error.message?.includes("does not exist"))) {
-                console.warn("Colunas de despesas ausentes no Supabase. Atualizando sem elas...");
-                const semDespesas = { ...dadosAtualizacao };
-                delete semDespesas.alimentacao;
-                delete semDespesas.perfumaria;
-                delete semDespesas.outros_gastos;
+                console.warn("Colunas opcionais ausentes no Supabase. Atualizando sem elas...");
+                const dadosSeguros = { ...dadosAtualizacao };
+                delete dadosSeguros.alimentacao;
+                delete dadosSeguros.perfumaria;
+                delete dadosSeguros.outros_gastos;
+                delete dadosSeguros.km_inicial;
+                delete dadosSeguros.km_final;
 
-                resp = await updateRecord(semDespesas, idPrincipal);
+                resp = await updateRecord(dadosSeguros, idPrincipal);
                 avisoSQLNecessario = true;
             }
 
@@ -428,12 +483,14 @@ function configurarFormulario() {
             let resp = await insertRecord(dadosAtualizacao);
 
             if (resp.error && (resp.error.code === "42703" || resp.error.message?.includes("does not exist"))) {
-                const semDespesas = { ...dadosAtualizacao };
-                delete semDespesas.alimentacao;
-                delete semDespesas.perfumaria;
-                delete semDespesas.outros_gastos;
+                const dadosSeguros = { ...dadosAtualizacao };
+                delete dadosSeguros.alimentacao;
+                delete dadosSeguros.perfumaria;
+                delete dadosSeguros.outros_gastos;
+                delete dadosSeguros.km_inicial;
+                delete dadosSeguros.km_final;
 
-                resp = await insertRecord(semDespesas);
+                resp = await insertRecord(dadosSeguros);
                 avisoSQLNecessario = true;
             }
 

@@ -9,13 +9,17 @@
 -- 4. Cole este script e clique em "RUN".
 -- ========================================================
 
--- 1. Adicionar colunas de despesas na tabela 'prancheta_registros'
+-- 1. Adicionar colunas de despesas e quilometragem na tabela 'prancheta_registros'
 ALTER TABLE prancheta_registros 
 ADD COLUMN IF NOT EXISTS alimentacao NUMERIC DEFAULT 0,
 ADD COLUMN IF NOT EXISTS perfumaria NUMERIC DEFAULT 0,
-ADD COLUMN IF NOT EXISTS outros_gastos NUMERIC DEFAULT 0;
+ADD COLUMN IF NOT EXISTS outros_gastos NUMERIC DEFAULT 0,
+ADD COLUMN IF NOT EXISTS km_inicial NUMERIC DEFAULT NULL,
+ADD COLUMN IF NOT EXISTS km_final NUMERIC DEFAULT NULL;
 
 -- 2. Comentários para documentação das novas colunas
 COMMENT ON COLUMN prancheta_registros.alimentacao IS 'Valor gasto com alimentação no dia';
 COMMENT ON COLUMN prancheta_registros.perfumaria IS 'Valor gasto com perfumaria no dia';
 COMMENT ON COLUMN prancheta_registros.outros_gastos IS 'Outros gastos diversos do dia';
+COMMENT ON COLUMN prancheta_registros.km_inicial IS 'Quilometragem inicial do veículo no dia';
+COMMENT ON COLUMN prancheta_registros.km_final IS 'Quilometragem final do veículo no dia';

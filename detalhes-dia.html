@@ -347,8 +347,16 @@
                 <h3><i class="ph ph-gauge"></i> Quilometragem</h3>
                 <div class="form-grid">
                     <div class="input-group">
+                        <label>Km Inicial</label>
+                        <input type="number" id="detalhe-km-inicial" step="0.1" placeholder="Ex: 54320">
+                    </div>
+                    <div class="input-group">
+                        <label>Km Final</label>
+                        <input type="number" id="detalhe-km-final" step="0.1" placeholder="Ex: 54450">
+                    </div>
+                    <div class="input-group">
                         <label>Km rodado no dia</label>
-                        <input type="number" id="detalhe-km-rodado" step="0.1" placeholder="0.0">
+                        <input type="number" id="detalhe-km-rodado" step="0.1" placeholder="0.0" readonly style="background-color:var(--bg-color); font-weight:600;">
                     </div>
                 </div>
             </div>
