@@ -430,7 +430,7 @@ function renderizarTabelaHistorico() {
         <td>
             ${
                 item.motivo_alteracao
-                ? `<span class="alteracao-info">✏️ ${escapeHtml(item.motivo_alteracao)}</span>`
+                ? `<span class="alteracao-info">✏️ ${escapeHtml(formatarMotivoAlteracao(item, movimentosCache))}</span>`
                 : `<span class="sem-alteracao">-</span>`
             }
         </td>
@@ -713,6 +713,8 @@ async function salvarAlteracao() {
                 }
             }
 
+            const textoMotivo = `Pagamento ref. ao dia trabalhado: ${formatarData(data)} [Ref. Trabalho #${idAlterando}]`;
+
             if (pgtoExistente) {
                 // Atualizar o pagamento já existente para evitar duplicidade
                 await supabaseClient
@@ -722,7 +724,7 @@ async function salvarAlteracao() {
                         data: data,
                         valor: valorEfetivoPago,
                         status: "pago",
-                        motivo_alteracao: `Pagamento [Ref. Trabalho #${idAlterando}]`
+                        motivo_alteracao: textoMotivo
                     })
                     .eq("id", pgtoExistente.id);
             } else {
@@ -735,7 +737,7 @@ async function salvarAlteracao() {
                         tipo: "pagamento",
                         valor: valorEfetivoPago,
                         status: "pago",
-                        motivo_alteracao: `Pagamento [Ref. Trabalho #${idAlterando}]`
+                        motivo_alteracao: textoMotivo
                     });
             }
         } else if (status === "pendente") {
@@ -743,6 +745,7 @@ async function salvarAlteracao() {
             // Se o usuário informou um pagamento parcial no campo:
             if (valorPagoInput !== "" && parseFloat(valorPagoInput.replace(',', '.')) > 0) {
                 const valorParcial = parseFloat(valorPagoInput.replace(',', '.'));
+                const textoParcial = `Pagamento parcial ref. ao dia trabalhado: ${formatarData(data)} [Ref. Trabalho #${idAlterando}]`;
                 if (pgtoExistente) {
                     await supabaseClient
                         .from("movimentos")
@@ -751,7 +754,7 @@ async function salvarAlteracao() {
                             data: data,
                             valor: valorParcial,
                             status: "pago",
-                            motivo_alteracao: `Pagamento parcial [Ref. Trabalho #${idAlterando}]`
+                            motivo_alteracao: textoParcial
                         })
                         .eq("id", pgtoExistente.id);
                 } else {
@@ -763,7 +766,7 @@ async function salvarAlteracao() {
                             tipo: "pagamento",
                             valor: valorParcial,
                             status: "pago",
-                            motivo_alteracao: `Pagamento parcial [Ref. Trabalho #${idAlterando}]`
+                            motivo_alteracao: textoParcial
                         });
                 }
             } else {
@@ -860,6 +863,25 @@ async function confirmarExclusao(id) {
 // ===============================
 // FORMATADORES
 // ===============================
+
+function formatarMotivoAlteracao(item, todosMovimentos) {
+    if (!item || !item.motivo_alteracao) return "";
+    const str = String(item.motivo_alteracao);
+    const match = str.match(/\[Ref\.\s*Trabalho\s*#(\d+)\]/i);
+    if (match) {
+        const idTrabalho = Number(match[1]);
+        const trabalhoRef = (todosMovimentos || []).find(t => Number(t.id) === idTrabalho);
+        const dataTrabalhada = trabalhoRef ? formatarData(trabalhoRef.data) : (item.data ? formatarData(item.data) : "");
+        const isParcial = str.toLowerCase().includes("parcial");
+        if (dataTrabalhada) {
+            return isParcial 
+                ? `Pagamento parcial ref. ao dia trabalhado: ${dataTrabalhada}`
+                : `Pagamento ref. ao dia trabalhado: ${dataTrabalhada}`;
+        }
+    }
+    // Remove qualquer tag técnica interna como [Ref. Trabalho #...] caso já exista texto explicativo
+    return str.replace(/\s*\[Ref\.\s*Trabalho\s*#\d+\]/gi, "").trim();
+}
 
 function formatarValor(valor) {
     const v = Number(valor || 0);
