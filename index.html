@@ -204,7 +204,7 @@
 
     <div id="modal-alterar" class="modal">
         <div class="modal-content">
-            <h3>Editar Registro</h3>
+            <h3 id="modal-titulo">Editar Registro</h3>
 
             <div class="input-group">
                 <label>Pessoa</label>
@@ -221,7 +221,7 @@
 
             <div class="input-group">
                 <label>Tipo</label>
-                <select id="edit-tipo">
+                <select id="edit-tipo" onchange="atualizarCamposModal()">
                     <option value="trabalho">Trabalho</option>
                     <option value="pagamento">Pagamento</option>
                 </select>
@@ -229,20 +229,33 @@
 
             <div class="input-group">
                 <label>Status</label>
-                <select id="edit-status">
+                <select id="edit-status" onchange="atualizarCamposModal()">
                     <option value="pendente">Pendente</option>
                     <option value="pago">Pago</option>
                 </select>
             </div>
 
-            <div class="input-group">
-                <label>Valor (R$)</label>
+            <div class="input-group" id="group-valor-trabalho">
+                <label id="label-valor-registro">Valor do Trabalho (R$)</label>
                 <div id="edit-valor-atual" style="font-size:12px; color:var(--text-muted); margin-bottom:4px;"></div>
                 <input 
                     id="novo-valor"
                     type="number"
                     step="0.01"
-                    placeholder="Novo valor (vazio = mantém original)">
+                    placeholder="Deixe em branco para manter o valor original">
+            </div>
+
+            <!-- Campo para informar o valor efetivamente recebido/pago -->
+            <div class="input-group" id="group-valor-pago" style="display:none; background:#f0fdf4; padding:12px; border-radius:8px; border:1px solid #bbf7d0;">
+                <label style="color:#166534; font-weight:600;"><i class="ph ph-hand-coins"></i> Valor Efetivamente Recebido (R$)</label>
+                <div style="font-size:12px; color:#15803d; margin-bottom:6px;">
+                    Deixe em branco para pagamento total, ou informe o valor recebido (parcial ou maior).
+                </div>
+                <input 
+                    id="edit-valor-pago-input"
+                    type="number"
+                    step="0.01"
+                    placeholder="Ex: 250,00 ou 400,00">
             </div>
 
             <div class="input-group">
@@ -254,12 +267,14 @@
             </div>
 
             <button 
+                type="button"
                 class="btn btn-primary"
                 onclick="salvarAlteracao()">
                 Salvar Alterações
             </button>
 
             <button 
+                type="button"
                 class="btn btn-outline"
                 onclick="fecharAlteracao()">
                 Cancelar

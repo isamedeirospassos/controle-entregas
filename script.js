@@ -6,500 +6,340 @@ const SUPABASE_URL = "https://qkrfmtykejpqtwtgrwbk.supabase.co";
 
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFrcmZtdHlrZWpwcXR3dGdyd2JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NTI3MTgsImV4cCI6MjEwNDEyODcxOH0.F6ICzGGd4luhsGOcaMkXd_6nQGQSYzd4nRIhrQpTG0w";
 
-
 const supabaseClient = supabase.createClient(
     SUPABASE_URL,
     SUPABASE_KEY
 );
 
+// ===============================
+// VARIÁVEIS GLOBAIS
+// ===============================
 
+let movimentosCache = [];
+let idAlterando = null;
+let ordemCrescente = false;
 
 // ===============================
-// NOTIFICAÇÕES
+// NOTIFICAÇÕES (TOASTS)
 // ===============================
 
 function showNotification(type, title, message) {
-
     const container = document.getElementById('toast-container');
-
-    if(!container) return;
-
+    if (!container) return;
 
     const toast = document.createElement('div');
-
     toast.className = `toast ${type}`;
 
-
     let iconClass = 'ph-info';
-
-    if(type === 'success') iconClass = 'ph-check-circle';
-    if(type === 'warning') iconClass = 'ph-warning-circle';
-    if(type === 'primary') iconClass = 'ph-moped';
-
+    if (type === 'success') iconClass = 'ph-check-circle';
+    if (type === 'warning') iconClass = 'ph-warning-circle';
+    if (type === 'primary') iconClass = 'ph-moped';
 
     toast.innerHTML = `
         <i class="ph ${iconClass}"></i>
-
         <div>
             <strong>${title}</strong>
-
             <p style="font-size:12px;color:var(--text-muted);margin-top:2px;">
                 ${message}
             </p>
         </div>
     `;
 
-
     container.appendChild(toast);
 
-
-    setTimeout(()=>{
-
-        toast.style.animation =
-        "slideOut 0.3s ease forwards";
-
-
-        setTimeout(()=>{
-
-            if(container.contains(toast)){
+    setTimeout(() => {
+        toast.style.animation = "slideOut 0.3s ease forwards";
+        setTimeout(() => {
+            if (container.contains(toast)) {
                 container.removeChild(toast);
             }
-
-        },300);
-
-
-    },3500);
-
+        }, 300);
+    }, 3500);
 }
-
-
-
-
 
 // ===============================
 // INICIALIZAÇÃO
 // ===============================
 
-document.addEventListener("DOMContentLoaded",()=>{
+document.addEventListener("DOMContentLoaded", async () => {
+    // Definir data padrão de hoje nos formulários
+    const hoje = new Date().toISOString().split("T")[0];
+    const inputDataTrabalho = document.getElementById("data-trabalho");
+    if (inputDataTrabalho && !inputDataTrabalho.value) {
+        inputDataTrabalho.value = hoje;
+    }
+    const inputDataPagamento = document.getElementById("data-pagamento");
+    if (inputDataPagamento && !inputDataPagamento.value) {
+        inputDataPagamento.value = hoje;
+    }
 
-
-    carregarDados();
-    carregarHistorico();
-    carregarPendencias();
+    // Carregar dados iniciais
+    await carregarDados();
+    await carregarHistorico();
+    await carregarPendencias();
 
     // Filtros e busca do Histórico
     const buscaInput = document.getElementById("busca-historico");
-    if(buscaInput){
+    if (buscaInput) {
         buscaInput.addEventListener("input", renderizarTabelaHistorico);
     }
 
     const filtroPessoa = document.getElementById("filtro-pessoa");
-    if(filtroPessoa){
+    if (filtroPessoa) {
         filtroPessoa.addEventListener("change", renderizarTabelaHistorico);
     }
 
     const filtroData = document.getElementById("filtro-data");
-    if(filtroData){
+    if (filtroData) {
         filtroData.addEventListener("change", renderizarTabelaHistorico);
     }
 
     const btnOrdenar = document.querySelector(".filters .btn-outline");
-    if(btnOrdenar){
-        btnOrdenar.addEventListener("click", ()=>{
+    if (btnOrdenar) {
+        btnOrdenar.addEventListener("click", () => {
             ordemCrescente = !ordemCrescente;
             btnOrdenar.innerHTML = `<i class="ph ph-sort-${ordemCrescente ? 'descending' : 'ascending'}"></i> Ordenar`;
             renderizarTabelaHistorico();
         });
     }
 
-
-
     // ===============================
-    // TRABALHO
+    // FORMULÁRIO: REGISTRAR TRABALHO
     // ===============================
 
-
-    const formTrabalho =
-    document.getElementById("form-trabalho");
-
-
-    if(formTrabalho){
-
-
-        formTrabalho.addEventListener("submit", async(e)=>{
-
-
+    const formTrabalho = document.getElementById("form-trabalho");
+    if (formTrabalho) {
+        formTrabalho.addEventListener("submit", async (e) => {
             e.preventDefault();
 
+            const pessoa = document.getElementById("pessoa-trabalho")?.value;
+            const data = document.getElementById("data-trabalho")?.value;
+            const valorRaw = document.getElementById("valor-trabalho")?.value;
 
-
-            const pessoa =
-            document.getElementById("pessoa-trabalho").value;
-
-
-            const data =
-            document.getElementById("data-trabalho").value;
-
-
-            const valor =
-            document.getElementById("valor-trabalho").value;
-
-
-
-            const {error} =
-            await supabaseClient
-            .from("movimentos")
-            .insert({
-
-                pessoa:pessoa,
-                data:data,
-                tipo:"trabalho",
-                valor:Number(valor),
-                status:"pendente"
-
-            });
-
-
-
-            if(error){
-
-                console.log(error);
-
-                showNotification(
-                    "warning",
-                    "Erro",
-                    "Não salvou trabalho"
-                );
-
-
-            }else{
-
-
-                showNotification(
-                    "success",
-                    "Trabalho salvo",
-                    "Registro adicionado"
-                );
-
-
-                formTrabalho.reset();
-
-
-                carregarDados();
-                carregarHistorico();
-                carregarPendencias();
-
-
+            if (!pessoa) {
+                showNotification("warning", "Atenção", "Por favor, selecione a pessoa.");
+                return;
             }
 
+            if (!data) {
+                showNotification("warning", "Atenção", "Por favor, informe a data do trabalho.");
+                return;
+            }
 
+            const valorNum = parseFloat(String(valorRaw).replace(',', '.'));
+            if (isNaN(valorNum) || valorNum <= 0) {
+                showNotification("warning", "Atenção", "Informe um valor numérico válido maior que zero.");
+                return;
+            }
+
+            // Inserir registro no Supabase
+            const { data: inserido, error } = await supabaseClient
+                .from("movimentos")
+                .insert({
+                    pessoa: pessoa,
+                    data: data,
+                    tipo: "trabalho",
+                    valor: valorNum,
+                    status: "pendente"
+                })
+                .select();
+
+            if (error || !inserido || inserido.length === 0) {
+                console.error("Erro ao salvar trabalho:", error);
+                showNotification("warning", "Erro", "Não foi possível salvar o trabalho: " + (error?.message || "Tente novamente"));
+                return;
+            }
+
+            // Exibir mensagem de sucesso após confirmação do salvamento
+            showNotification("success", "Trabalho salvo", "Registro adicionado com sucesso");
+
+            // Limpar valor e redefinir data de hoje
+            document.getElementById("valor-trabalho").value = "";
+            document.getElementById("data-trabalho").value = hoje;
+
+            // Atualizar automaticamente indicadores e histórico
+            await carregarDados();
+            await carregarHistorico();
+            await carregarPendencias();
         });
-
     }
 
-
-
-
-
     // ===============================
-    // PAGAMENTO
+    // FORMULÁRIO: REGISTRAR PAGAMENTO
     // ===============================
 
-
-    const formPagamento =
-    document.getElementById("form-pagamento");
-
-
-
-    if(formPagamento){
-
-
-        formPagamento.addEventListener("submit", async(e)=>{
-
-
+    const formPagamento = document.getElementById("form-pagamento");
+    if (formPagamento) {
+        formPagamento.addEventListener("submit", async (e) => {
             e.preventDefault();
 
+            const pessoa = document.getElementById("pessoa-pagamento")?.value;
+            const data = document.getElementById("data-pagamento")?.value;
+            const valorRaw = document.getElementById("valor-pagamento")?.value;
 
-
-            const pessoa =
-            document.getElementById("pessoa-pagamento").value;
-
-
-            const data =
-            document.getElementById("data-pagamento").value;
-
-
-            const valor =
-            document.getElementById("valor-pagamento").value;
-
-
-
-
-            const {error} =
-            await supabaseClient
-            .from("movimentos")
-            .insert({
-
-                pessoa:pessoa,
-                data:data,
-                tipo:"pagamento",
-                valor:Number(valor),
-                status:"pago"
-
-            });
-
-
-
-            if(error){
-
-
-                console.log(error);
-
-
-                showNotification(
-                    "warning",
-                    "Erro",
-                    "Não salvou pagamento"
-                );
-
-
-
-            }else{
-
-
-                showNotification(
-                    "primary",
-                    "Pagamento salvo",
-                    "Registro adicionado"
-                );
-
-
-                formPagamento.reset();
-
-
-                carregarDados();
-
-                carregarHistorico();
-                
-
-
+            if (!pessoa) {
+                showNotification("warning", "Atenção", "Por favor, selecione a pessoa.");
+                return;
             }
 
+            if (!data) {
+                showNotification("warning", "Atenção", "Por favor, informe a data de referência.");
+                return;
+            }
 
+            const valorNum = parseFloat(String(valorRaw).replace(',', '.'));
+            if (isNaN(valorNum) || valorNum <= 0) {
+                showNotification("warning", "Atenção", "Informe um valor numérico válido maior que zero.");
+                return;
+            }
+
+            const { data: inserido, error } = await supabaseClient
+                .from("movimentos")
+                .insert({
+                    pessoa: pessoa,
+                    data: data,
+                    tipo: "pagamento",
+                    valor: valorNum,
+                    status: "pago"
+                })
+                .select();
+
+            if (error || !inserido || inserido.length === 0) {
+                console.error("Erro ao salvar pagamento:", error);
+                showNotification("warning", "Erro", "Não foi possível salvar o pagamento: " + (error?.message || "Tente novamente"));
+                return;
+            }
+
+            showNotification("primary", "Pagamento salvo", "Registro adicionado com sucesso");
+
+            document.getElementById("valor-pagamento").value = "";
+            document.getElementById("data-pagamento").value = hoje;
+
+            await carregarDados();
+            await carregarHistorico();
+            await carregarPendencias();
         });
-
-
     }
-
-
 });
 
-
-
-
-
-
 // ===============================
-// BUSCAR DADOS
+// BUSCAR DADOS & ATUALIZAR INDICADORES
 // ===============================
 
-async function carregarDados(){
+async function carregarDados() {
+    const { data, error } = await supabaseClient
+        .from("movimentos")
+        .select("*");
 
-
-    const {data,error} =
-    await supabaseClient
-    .from("movimentos")
-    .select("*");
-
-
-
-    if(error){
-
-        console.log(error);
+    if (error) {
+        console.error("Erro ao carregar dados:", error);
         return;
-
     }
 
+    const todos = data || [];
 
+    // Atualizar Isabella e Pietro
+    const saldoIsabella = atualizarPessoa("isabella", todos);
+    const saldoPietro = atualizarPessoa("pietro", todos);
 
-    const isabella =
-    data.filter(item=>item.pessoa==="isabella");
+    // Total Geral — Total em aberto: soma dos saldos individuais de Isabella e Pietro, considerando também saldos negativos
+    const totalGeralAberto = saldoIsabella + saldoPietro;
 
-
-    const pietro =
-    data.filter(item=>item.pessoa==="pietro");
-
-
-
-    atualizarPessoa(
-        "isabella",
-        isabella
-    );
-
-
-    atualizarPessoa(
-        "pietro",
-        pietro
-    );
-
-
-
-    const totalGeral =
-    calcularSaldo(isabella)
-    +
-    calcularSaldo(pietro);
-
-
-
-    const total =
-    document.getElementById(
-        "total-geral-aberto"
-    );
-
-
-    if(total){
-
-        total.innerText =
-        formatarValor(totalGeral);
-
+    const elTotalGeral = document.getElementById("total-geral-aberto");
+    if (elTotalGeral) {
+        elTotalGeral.innerText = formatarValor(totalGeralAberto);
     }
-
-
 }
 
-
-
-
-
-
 // ===============================
-// ATUALIZAR PESSOA
+// ATUALIZAR PESSOA (ISABELLA / PIETRO)
 // ===============================
 
-function atualizarPessoa(nome, registros){
+function atualizarPessoa(nome, todosRegistros) {
+    const registros = todosRegistros.filter(item => item.pessoa === nome);
 
     const trabalhos = registros.filter(item => item.tipo === "trabalho");
-    const pagamentosAvulsos = registros.filter(item => item.tipo === "pagamento");
+    const pagamentos = registros.filter(item => item.tipo === "pagamento");
 
-    const trabalhosPendentes = trabalhos.filter(item => item.status === "pendente");
-    const trabalhosPagos = trabalhos.filter(item => item.status === "pago");
-
-    // Total trabalhado (soma de todos os trabalhos realizados)
+    // 1. Total trabalhado: soma dos valores dos trabalhos cadastrados
     const totalTrabalhado = trabalhos.reduce(
         (s, item) => s + Number(item.valor || 0),
         0
     );
 
-    // Total já pago: trabalhos marcados como pagos + pagamentos avulsos
-    const totalPagoTrabalhos = trabalhosPagos.reduce(
+    // 2. Total pago: soma dos pagamentos avulsos + vinculados
+    let totalPago = pagamentos.reduce(
         (s, item) => s + Number(item.valor || 0),
         0
     );
-    const totalPagamentosAvulsos = pagamentosAvulsos.reduce(
-        (s, item) => s + Number(item.valor || 0),
+
+    // Se houver algum trabalho marcado como pago que não tenha um pagamento avulso vinculado, soma também
+    const trabalhosPagosSemVinculo = trabalhos.filter(t => 
+        t.status === "pago" && 
+        !pagamentos.some(p => p.motivo_alteracao && p.motivo_alteracao.includes(`[Ref. Trabalho #${t.id}]`))
+    );
+    const totalSemVinculo = trabalhosPagosSemVinculo.reduce(
+        (s, t) => s + Number(t.valor || 0),
         0
     );
-    const totalPago = totalPagoTrabalhos + totalPagamentosAvulsos;
+    totalPago += totalSemVinculo;
 
-    // Saldo pendente: trabalhos que continuam pendentes (descontando pagamentos avulsos excedentes)
-    const totalValorPendente = trabalhosPendentes.reduce(
-        (s, item) => s + Number(item.valor || 0),
-        0
+    // 3. Saldo pendente: total trabalhado menos total pago (pode ser negativo se total pago for maior!)
+    const saldoPendente = totalTrabalhado - totalPago;
+
+    // 4. Dias trabalhados: quantidade de dias distintos com trabalho registrado
+    const datasDistintas = new Set(
+        trabalhos.map(item => item.data).filter(Boolean)
     );
-    const saldo = Math.max(0, totalValorPendente - totalPagamentosAvulsos);
+    const diasTrabalhados = datasDistintas.size;
 
-    const dias = trabalhos.length;
+    // Atualizar Card da Pessoa
+    alterarTexto(`${nome}-total-trabalhado`, formatarValor(totalTrabalhado));
+    alterarTexto(`${nome}-total-pago`, formatarValor(totalPago));
+    
+    const elSaldo = document.getElementById(`${nome}-saldo-pendente`);
+    if (elSaldo) {
+        elSaldo.innerText = formatarValor(saldoPendente);
+        // Se saldo > 0: aviso (amarelo). Se <= 0: sucesso (verde).
+        elSaldo.className = "value " + (saldoPendente > 0 ? "warning" : "success");
+    }
 
-    alterarTexto(
-        `${nome}-total-trabalhado`,
-        formatarValor(totalTrabalhado)
-    );
+    alterarTexto(`${nome}-dias-trabalhados`, `${diasTrabalhados} dias`);
 
-    alterarTexto(
-        `${nome}-total-pago`,
-        formatarValor(totalPago)
-    );
+    // Atualizar Resumo Financeiro
+    alterarTexto(`resumo-${nome}-dias`, diasTrabalhados);
+    alterarTexto(`resumo-${nome}-total`, formatarValor(totalTrabalhado));
+    alterarTexto(`resumo-${nome}-recebido`, formatarValor(totalPago));
 
-    alterarTexto(
-        `${nome}-saldo-pendente`,
-        formatarValor(saldo)
-    );
+    const elFalta = document.getElementById(`resumo-${nome}-falta`);
+    if (elFalta) {
+        elFalta.innerText = formatarValor(saldoPendente);
+        elFalta.className = saldoPendente > 0 ? "warning" : "success";
+    }
 
-    alterarTexto(
-        `${nome}-dias-trabalhados`,
-        `${dias} dias`
-    );
-
-    alterarTexto(
-        `resumo-${nome}-dias`,
-        dias
-    );
-
-    alterarTexto(
-        `resumo-${nome}-total`,
-        formatarValor(totalTrabalhado)
-    );
-
-    alterarTexto(
-        `resumo-${nome}-recebido`,
-        formatarValor(totalPago)
-    );
-
-    alterarTexto(
-        `resumo-${nome}-falta`,
-        formatarValor(saldo)
-    );
-
+    return saldoPendente;
 }
 
-function alterarTexto(id, valor){
+function alterarTexto(id, valor) {
     const elemento = document.getElementById(id);
-    if(elemento){
+    if (elemento) {
         elemento.innerText = valor;
     }
 }
 
 // ===============================
-// CALCULAR SALDO
-// ===============================
-
-function calcularSaldo(registros){
-
-    const trabalhosPendentes = registros
-        .filter(item => item.tipo === "trabalho" && item.status === "pendente")
-        .reduce((s, item) => s + Number(item.valor || 0), 0);
-
-    const pagamentosAvulsos = registros
-        .filter(item => item.tipo === "pagamento")
-        .reduce((s, item) => s + Number(item.valor || 0), 0);
-
-    return Math.max(0, trabalhosPendentes - pagamentosAvulsos);
-
-}
-
-
-
-
-
-// ===============================
 // HISTÓRICO & FILTROS
 // ===============================
 
-let movimentosCache = [];
-let ordemCrescente = false;
+async function carregarHistorico() {
+    const { data, error } = await supabaseClient
+        .from("movimentos")
+        .select("*")
+        .order("data", { ascending: false })
+        .order("id", { ascending: false });
 
-async function carregarHistorico(){
-
-    const {data,error} =
-    await supabaseClient
-    .from("movimentos")
-    .select("*")
-    .order("data",{ascending:false})
-    .order("id",{ascending:false});
-
-    if(error){
+    if (error) {
         console.error("Erro ao carregar histórico:", error);
-        showNotification("warning", "Erro", "Não foi possível carregar histórico");
         return;
     }
 
@@ -507,9 +347,9 @@ async function carregarHistorico(){
     renderizarTabelaHistorico();
 }
 
-function renderizarTabelaHistorico(){
+function renderizarTabelaHistorico() {
     const tabela = document.getElementById("historico-tabela");
-    if(!tabela) return;
+    if (!tabela) return;
 
     tabela.innerHTML = "";
 
@@ -531,14 +371,13 @@ function renderizarTabelaHistorico(){
             limite.setDate(hoje.getDate() - 7);
             const dataItem = new Date(item.data + "T00:00:00");
             if (dataItem < limite) return false;
-        } else if (filtroData === "30" || filtroData === "") {
-            // Últimos 30 dias por padrão se vazio ou 30
+        } else if (filtroData === "30") {
             const limite = new Date();
             limite.setDate(hoje.getDate() - 30);
             const dataItem = new Date(item.data + "T00:00:00");
             if (dataItem < limite) return false;
         }
-        // "all" passa direto
+        // "all" ou vazio passa tudo
 
         // Busca texto
         if (termoBusca) {
@@ -568,14 +407,7 @@ function renderizarTabelaHistorico(){
     filtrados.forEach(item => {
         const linha = document.createElement("tr");
 
-        let nomePessoa = item.pessoa;
-        const nomes = {
-            isabella: "Isabella",
-            pietro: "Pietro"
-        };
-        if(nomes[item.pessoa]){
-            nomePessoa = nomes[item.pessoa];
-        }
+        let nomePessoa = item.pessoa === "isabella" ? "Isabella" : (item.pessoa === "pietro" ? "Pietro" : item.pessoa);
 
         linha.innerHTML = `
         <td>${nomePessoa}</td>
@@ -626,100 +458,52 @@ function renderizarTabelaHistorico(){
     });
 }
 
-function escapeHtml(str) {
-    if (!str) return "";
-    return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-
-
-
-
-
 // ===============================
-// FORMATADORES
+// PAGAMENTOS PENDENTES
 // ===============================
 
-function formatarValor(valor){
+async function carregarPendencias() {
+    const { data, error } = await supabaseClient
+        .from("movimentos")
+        .select("*");
 
-    return valor.toLocaleString(
-        "pt-BR",
-        {
-            style:"currency",
-            currency:"BRL"
-        }
-    );
-
-}
-
-
-
-function formatarData(data){
-
-    if(!data) return "";
-
-
-    const partes=data.split("-");
-
-
-    return `${partes[2]}/${partes[1]}/${partes[0]}`;
-
-}
-
-
-
-// ===============================
-// CARREGAR PAGAMENTOS PENDENTES
-// ===============================
-
-async function carregarPendencias(){
-
-    const { data, error } =
-    await supabaseClient
-    .from("movimentos")
-    .select("*");
-
-    if(error){
-        console.log("Erro ao carregar pendências:", error);
+    if (error) {
+        console.error("Erro ao carregar pendências:", error);
         return;
     }
 
     const container = document.getElementById("pagamentos-pendentes");
-    if(!container){
-        return;
-    }
+    if (!container) return;
 
     container.innerHTML = "";
 
-    const pessoas = [
-        "isabella",
-        "pietro"
-    ];
-
+    const todos = data || [];
+    const pessoas = ["isabella", "pietro"];
     let temPendencia = false;
 
-    pessoas.forEach(pessoa=>{
+    pessoas.forEach(pessoa => {
+        const registros = todos.filter(item => item.pessoa === pessoa);
+        const trabalhos = registros.filter(item => item.tipo === "trabalho");
+        const pagamentos = registros.filter(item => item.tipo === "pagamento");
 
-        const registros = (data || []).filter(item =>
-            item.pessoa === pessoa
+        const totalTrabalhado = trabalhos.reduce((s, r) => s + Number(r.valor || 0), 0);
+        let totalPago = pagamentos.reduce((s, r) => s + Number(r.valor || 0), 0);
+        const trabalhosPagosSemVinculo = trabalhos.filter(t => 
+            t.status === "pago" && 
+            !pagamentos.some(p => p.motivo_alteracao && p.motivo_alteracao.includes(`[Ref. Trabalho #${t.id}]`))
         );
+        totalPago += trabalhosPagosSemVinculo.reduce((s, t) => s + Number(t.valor || 0), 0);
 
-        // Saldo pendente real da pessoa
-        const falta = calcularSaldo(registros);
+        const falta = totalTrabalhado - totalPago;
 
-        if(falta > 0){
+        if (falta > 0) {
             temPendencia = true;
 
-            const trabalhosPendentes = registros
-                .filter(item => item.tipo === "trabalho" && item.status === "pendente")
-                .sort((a,b) => new Date(b.data) - new Date(a.data));
+            const trabalhosPendentes = trabalhos
+                .filter(item => item.status === "pendente")
+                .sort((a, b) => new Date(b.data) - new Date(a.data));
 
-            const ultimoTrabalho = trabalhosPendentes[0] || registros.filter(item => item.tipo === "trabalho").sort((a,b) => new Date(b.data) - new Date(a.data))[0];
-
+            const ultimoTrabalho = trabalhosPendentes[0] || trabalhos[0];
             const dataFormatada = ultimoTrabalho ? formatarData(ultimoTrabalho.data) : "";
             const nomeFormatado = pessoa === "isabella" ? "Isabella" : "Pietro";
 
@@ -737,10 +521,9 @@ async function carregarPendencias(){
             </div>
             `;
         }
-
     });
 
-    if(!temPendencia){
+    if (!temPendencia) {
         container.innerHTML = `
             <div style="padding: 16px; text-align: center; color: var(--text-muted); font-size: 13px;">
                 <i class="ph ph-check-circle" style="color: var(--success); font-size: 20px; vertical-align: middle; margin-right: 4px;"></i>
@@ -748,115 +531,118 @@ async function carregarPendencias(){
             </div>
         `;
     }
-
-}
-
-
 }
 
 // ===============================
-// MENU
+// MODAL DE ALTERAÇÃO
 // ===============================
 
-function toggleMenu(){
-
-    showNotification(
-        "primary",
-        "Menu",
-        "Menu lateral"
-    );
-
-}
-
-// ===============================
-// MENU
-// ===============================
-
-function toggleMenu(){
-
-    showNotification(
-        "primary",
-        "Menu",
-        "Menu lateral"
-    );
-
-}
-
-
-
-// ===============================
-// ALTERAR / EXCLUIR REGISTRO
-// ===============================
-
-let idAlterando = null;
-
-// abrir modal
-function abrirAlteracao(id){
-    console.log("Abrindo alteração ID:", id);
+function abrirAlteracao(id) {
     idAlterando = id;
 
     const item = movimentosCache.find(m => Number(m.id) === Number(id));
-    if(!item){
+    if (!item) {
         console.error("Registro não encontrado em cache:", id);
         return;
     }
 
     const modal = document.getElementById("modal-alterar");
-    if(!modal) return;
+    if (!modal) return;
 
-    // Preencher campos com dados atuais
-    const selPessoa = document.getElementById("edit-pessoa");
-    if(selPessoa) selPessoa.value = item.pessoa || "isabella";
+    // Preencher campos
+    document.getElementById("edit-pessoa").value = item.pessoa || "isabella";
+    document.getElementById("edit-data").value = item.data || "";
+    document.getElementById("edit-tipo").value = item.tipo || "trabalho";
+    document.getElementById("edit-status").value = item.status || "pendente";
 
-    const inputData = document.getElementById("edit-data");
-    if(inputData) inputData.value = item.data || "";
-
-    const selTipo = document.getElementById("edit-tipo");
-    if(selTipo) selTipo.value = item.tipo || "trabalho";
-
-    const selStatus = document.getElementById("edit-status");
-    if(selStatus) selStatus.value = item.status || "pendente";
-
-    const valorAtualEl = document.getElementById("edit-valor-atual");
-    if(valorAtualEl) {
-        valorAtualEl.innerText = `Valor cadastrado: ${formatarValor(Number(item.valor || 0))}`;
-    }
-
+    const labelValor = document.getElementById("label-valor-registro");
+    const editValorAtual = document.getElementById("edit-valor-atual");
     const inputNovoValor = document.getElementById("novo-valor");
-    if(inputNovoValor) {
-        inputNovoValor.value = "";
-    }
-
+    const inputValorPago = document.getElementById("edit-valor-pago-input");
     const txtMotivo = document.getElementById("motivo-alteracao");
-    if(txtMotivo) {
-        txtMotivo.value = item.motivo_alteracao || "";
+
+    if (item.tipo === "trabalho") {
+        if (labelValor) labelValor.innerText = "Valor Original do Trabalho (R$)";
+        if (editValorAtual) editValorAtual.innerText = `Valor original cadastrado: ${formatarValor(item.valor)}`;
+        if (inputNovoValor) {
+            inputNovoValor.value = "";
+            inputNovoValor.placeholder = "Deixe em branco para manter o valor original";
+        }
+
+        // Buscar se já existia algum pagamento vinculado a este trabalho
+        const pgtoVinculado = movimentosCache.find(p => 
+            p.tipo === "pagamento" && 
+            p.motivo_alteracao && 
+            p.motivo_alteracao.includes(`[Ref. Trabalho #${item.id}]`)
+        );
+
+        if (inputValorPago) {
+            if (pgtoVinculado) {
+                inputValorPago.value = pgtoVinculado.valor;
+            } else if (item.status === "pago") {
+                inputValorPago.value = item.valor;
+            } else {
+                inputValorPago.value = "";
+            }
+        }
+    } else {
+        if (labelValor) labelValor.innerText = "Valor do Pagamento (R$)";
+        if (editValorAtual) editValorAtual.innerText = `Valor pago cadastrado: ${formatarValor(item.valor)}`;
+        if (inputNovoValor) {
+            inputNovoValor.value = "";
+            inputNovoValor.placeholder = "Deixe em branco para manter o valor original";
+        }
+        if (inputValorPago) inputValorPago.value = "";
     }
 
+    if (txtMotivo) txtMotivo.value = item.motivo_alteracao || "";
+
+    atualizarCamposModal();
     modal.style.display = "flex";
 }
 
-// fechar modal
-function fecharAlteracao(){
-    idAlterando = null;
-    const modal = document.getElementById("modal-alterar");
-    if(modal) modal.style.display = "none";
+function atualizarCamposModal() {
+    const tipo = document.getElementById("edit-tipo")?.value;
+    const status = document.getElementById("edit-status")?.value;
+    const groupValorPago = document.getElementById("group-valor-pago");
 
-    const inputNovoValor = document.getElementById("novo-valor");
-    if(inputNovoValor) inputNovoValor.value = "";
+    if (!groupValorPago) return;
 
-    const txtMotivo = document.getElementById("motivo-alteracao");
-    if(txtMotivo) txtMotivo.value = "";
+    // O campo de valor efetivamente recebido é exibido se for trabalho e estiver como Pago (ou se usuário quiser registrar pagamento)
+    if (tipo === "trabalho" && status === "pago") {
+        groupValorPago.style.display = "block";
+    } else {
+        groupValorPago.style.display = "none";
+    }
 }
 
-// salvar alteração
-async function salvarAlteracao(){
-    if(!idAlterando){
+function fecharAlteracao() {
+    idAlterando = null;
+    const modal = document.getElementById("modal-alterar");
+    if (modal) modal.style.display = "none";
+
+    const inputNovoValor = document.getElementById("novo-valor");
+    if (inputNovoValor) inputNovoValor.value = "";
+
+    const inputValorPago = document.getElementById("edit-valor-pago-input");
+    if (inputValorPago) inputValorPago.value = "";
+
+    const txtMotivo = document.getElementById("motivo-alteracao");
+    if (txtMotivo) txtMotivo.value = "";
+}
+
+// ===============================
+// SALVAR ALTERAÇÃO
+// ===============================
+
+async function salvarAlteracao() {
+    if (!idAlterando) {
         showNotification("warning", "Erro", "Nenhum registro selecionado");
         return;
     }
 
     const itemOriginal = movimentosCache.find(m => Number(m.id) === Number(idAlterando));
-    if(!itemOriginal){
+    if (!itemOriginal) {
         showNotification("warning", "Erro", "Registro original não encontrado.");
         return;
     }
@@ -865,73 +651,199 @@ async function salvarAlteracao(){
     const data = document.getElementById("edit-data")?.value || itemOriginal.data;
     const tipo = document.getElementById("edit-tipo")?.value || itemOriginal.tipo;
     const status = document.getElementById("edit-status")?.value || itemOriginal.status;
-    const novoValorInput = document.getElementById("novo-valor")?.value ?? "";
+    const novoValorInput = (document.getElementById("novo-valor")?.value || "").trim();
+    const valorPagoInput = (document.getElementById("edit-valor-pago-input")?.value || "").trim();
     const motivo = (document.getElementById("motivo-alteracao")?.value || "").trim();
 
-    // Objeto de atualização
-    const dadosAtualizacao = {
-        pessoa: pessoa,
-        data: data,
-        tipo: tipo,
-        status: status,
-        motivo_alteracao: motivo || null,
-        alterado_em: new Date().toISOString()
-    };
-
-    // Regras de negócio solicitadas:
-    // - Campo "Valor alterado" vazio = manter valor original.
-    // - Campo com novo número = atualizar valor.
-    // - Valor 0 informado explicitamente = permitir zerar.
-    // - Alterar somente os campos modificados.
-    if(novoValorInput.trim() !== ""){
-        const num = Number(novoValorInput);
-        if(!isNaN(num)){
-            dadosAtualizacao.valor = num;
+    // Determinar o valor do registro
+    // Regra: vazio = mantém valor original. Se informado número = atualiza (inclusive 0).
+    let valorFinal = Number(itemOriginal.valor);
+    if (novoValorInput !== "") {
+        const num = parseFloat(novoValorInput.replace(',', '.'));
+        if (!isNaN(num)) {
+            valorFinal = num;
         } else {
-            showNotification("warning", "Valor inválido", "Informe um número válido para o valor.");
+            showNotification("warning", "Valor inválido", "Informe um valor numérico válido.");
             return;
         }
-    } else {
-        // Manter o valor original garantindo que não será zerado
-        dadosAtualizacao.valor = Number(itemOriginal.valor);
     }
 
-    const { data: respData, error } = await supabaseClient
-        .from("movimentos")
-        .update(dadosAtualizacao)
-        .eq("id", idAlterando)
-        .select();
+    // Se o registro editado for TRABALHO
+    if (itemOriginal.tipo === "trabalho" || tipo === "trabalho") {
 
-    if(error){
-        console.error("Erro no update:", error);
-        showNotification("warning", "Erro", "Não foi possível atualizar: " + error.message);
-        return;
+        // 1. Atualizar o trabalho: O valor original do trabalho permanece registrado
+        const dadosTrabalho = {
+            pessoa: pessoa,
+            data: data,
+            tipo: "trabalho",
+            status: status,
+            valor: valorFinal,
+            motivo_alteracao: motivo || itemOriginal.motivo_alteracao || null,
+            alterado_em: new Date().toISOString()
+        };
+
+        const { error: erroTrabalho } = await supabaseClient
+            .from("movimentos")
+            .update(dadosTrabalho)
+            .eq("id", idAlterando);
+
+        if (erroTrabalho) {
+            console.error("Erro ao atualizar trabalho:", erroTrabalho);
+            showNotification("warning", "Erro", "Não foi possível atualizar o trabalho: " + erroTrabalho.message);
+            return;
+        }
+
+        // 2. Gerenciar o pagamento vinculado (evitar duplicidades!)
+        // Procurar se já existe um pagamento vinculado a este trabalho
+        const pgtoExistente = movimentosCache.find(p => 
+            p.tipo === "pagamento" && 
+            p.motivo_alteracao && 
+            p.motivo_alteracao.includes(`[Ref. Trabalho #${idAlterando}]`)
+        );
+
+        if (status === "pago") {
+            // Valor efetivamente recebido:
+            // Se o campo estiver vazio, considera pagamento total (valorFinal do trabalho).
+            // Se estiver preenchido (parcial ou maior), considera o valor digitado.
+            let valorEfetivoPago = valorFinal;
+            if (valorPagoInput !== "") {
+                const numPago = parseFloat(valorPagoInput.replace(',', '.'));
+                if (!isNaN(numPago)) {
+                    valorEfetivoPago = numPago;
+                }
+            }
+
+            if (pgtoExistente) {
+                // Atualizar o pagamento já existente para evitar duplicidade
+                await supabaseClient
+                    .from("movimentos")
+                    .update({
+                        pessoa: pessoa,
+                        data: data,
+                        valor: valorEfetivoPago,
+                        status: "pago",
+                        motivo_alteracao: `Pagamento [Ref. Trabalho #${idAlterando}]`
+                    })
+                    .eq("id", pgtoExistente.id);
+            } else {
+                // Criar o registro de pagamento correspondente
+                await supabaseClient
+                    .from("movimentos")
+                    .insert({
+                        pessoa: pessoa,
+                        data: data,
+                        tipo: "pagamento",
+                        valor: valorEfetivoPago,
+                        status: "pago",
+                        motivo_alteracao: `Pagamento [Ref. Trabalho #${idAlterando}]`
+                    });
+            }
+        } else if (status === "pendente") {
+            // Se foi alterado de volta para Pendente:
+            // Se o usuário informou um pagamento parcial no campo:
+            if (valorPagoInput !== "" && parseFloat(valorPagoInput.replace(',', '.')) > 0) {
+                const valorParcial = parseFloat(valorPagoInput.replace(',', '.'));
+                if (pgtoExistente) {
+                    await supabaseClient
+                        .from("movimentos")
+                        .update({
+                            pessoa: pessoa,
+                            data: data,
+                            valor: valorParcial,
+                            status: "pago",
+                            motivo_alteracao: `Pagamento parcial [Ref. Trabalho #${idAlterando}]`
+                        })
+                        .eq("id", pgtoExistente.id);
+                } else {
+                    await supabaseClient
+                        .from("movimentos")
+                        .insert({
+                            pessoa: pessoa,
+                            data: data,
+                            tipo: "pagamento",
+                            valor: valorParcial,
+                            status: "pago",
+                            motivo_alteracao: `Pagamento parcial [Ref. Trabalho #${idAlterando}]`
+                        });
+                }
+            } else {
+                // Se está pendente e não tem pagamento, remove o pagamento vinculado caso existisse
+                if (pgtoExistente) {
+                    await supabaseClient
+                        .from("movimentos")
+                        .delete()
+                        .eq("id", pgtoExistente.id);
+                }
+            }
+        }
+
+    } else {
+        // Se o registro editado for diretamente um PAGAMENTO
+        const dadosPagamento = {
+            pessoa: pessoa,
+            data: data,
+            tipo: "pagamento",
+            status: status,
+            valor: valorFinal,
+            motivo_alteracao: motivo || itemOriginal.motivo_alteracao || null,
+            alterado_em: new Date().toISOString()
+        };
+
+        const { error: erroPgto } = await supabaseClient
+            .from("movimentos")
+            .update(dadosPagamento)
+            .eq("id", idAlterando);
+
+        if (erroPgto) {
+            console.error("Erro ao atualizar pagamento:", erroPgto);
+            showNotification("warning", "Erro", "Não foi possível atualizar o pagamento: " + erroPgto.message);
+            return;
+        }
     }
 
     showNotification("success", "Alterado", "Registro atualizado com sucesso");
     fecharAlteracao();
 
+    // Atualizar automaticamente indicadores, histórico e pendências
     await carregarDados();
     await carregarHistorico();
     await carregarPendencias();
 }
 
-// excluir registro
-async function confirmarExclusao(id){
-    if(!id) return;
+// ===============================
+// EXCLUIR REGISTRO
+// ===============================
+
+async function confirmarExclusao(id) {
+    if (!id) return;
 
     const item = movimentosCache.find(m => Number(m.id) === Number(id));
-    const desc = item ? `${item.pessoa} - ${formatarData(item.data)} (${formatarValor(Number(item.valor))})` : `ID ${id}`;
+    const desc = item ? `${item.pessoa === "isabella" ? "Isabella" : "Pietro"} - ${formatarData(item.data)} (${formatarValor(Number(item.valor))})` : `ID ${id}`;
 
-    const confirmado = confirm(`Deseja realmente excluir este registro?\n\n${desc}\n\nEsta ação não poderá ser desfeita.`);
-    if(!confirmado) return;
+    const confirmado = confirm(`Deseja realmente excluir este registro?\n\n${desc}\n\nEsta ação não poderá ser desfeita e removerá o item de todos os totais.`);
+    if (!confirmado) return;
+
+    // Se for trabalho, também excluir qualquer pagamento vinculado
+    if (item && item.tipo === "trabalho") {
+        const pgtoVinculado = movimentosCache.find(p => 
+            p.tipo === "pagamento" && 
+            p.motivo_alteracao && 
+            p.motivo_alteracao.includes(`[Ref. Trabalho #${id}]`)
+        );
+        if (pgtoVinculado) {
+            await supabaseClient
+                .from("movimentos")
+                .delete()
+                .eq("id", pgtoVinculado.id);
+        }
+    }
 
     const { error } = await supabaseClient
         .from("movimentos")
         .delete()
         .eq("id", id);
 
-    if(error){
+    if (error) {
         console.error("Erro ao excluir:", error);
         showNotification("warning", "Erro", "Não foi possível excluir o registro: " + error.message);
         return;
@@ -939,8 +851,37 @@ async function confirmarExclusao(id){
 
     showNotification("success", "Excluído", "Registro removido com sucesso");
 
+    // Recalcular e atualizar tudo imediatamente
     await carregarDados();
     await carregarHistorico();
     await carregarPendencias();
 }
 
+// ===============================
+// FORMATADORES
+// ===============================
+
+function formatarValor(valor) {
+    const v = Number(valor || 0);
+    return v.toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL"
+    });
+}
+
+function formatarData(data) {
+    if (!data) return "";
+    const partes = data.split("-");
+    if (partes.length !== 3) return data;
+    return `${partes[2]}/${partes[1]}/${partes[0]}`;
+}
+
+function escapeHtml(str) {
+    if (!str) return "";
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
