@@ -17,9 +17,17 @@ ADD COLUMN IF NOT EXISTS outros_gastos NUMERIC DEFAULT 0,
 ADD COLUMN IF NOT EXISTS km_inicial NUMERIC DEFAULT NULL,
 ADD COLUMN IF NOT EXISTS km_final NUMERIC DEFAULT NULL;
 
--- 2. Comentários para documentação das novas colunas
-COMMENT ON COLUMN prancheta_registros.alimentacao IS 'Valor gasto com alimentação no dia';
-COMMENT ON COLUMN prancheta_registros.perfumaria IS 'Valor gasto com perfumaria no dia';
-COMMENT ON COLUMN prancheta_registros.outros_gastos IS 'Outros gastos diversos do dia';
-COMMENT ON COLUMN prancheta_registros.km_inicial IS 'Quilometragem inicial do veículo no dia';
-COMMENT ON COLUMN prancheta_registros.km_final IS 'Quilometragem final do veículo no dia';
+-- 3. Liberar permissão de EXCLUIR (DELETE) nas tabelas
+DROP POLICY IF EXISTS "Permitir delete em prancheta_registros" ON prancheta_registros;
+CREATE POLICY "Permitir delete em prancheta_registros" 
+ON prancheta_registros 
+FOR DELETE 
+TO anon, authenticated 
+USING (true);
+
+DROP POLICY IF EXISTS "Permitir delete em movimentos" ON movimentos;
+CREATE POLICY "Permitir delete em movimentos" 
+ON movimentos 
+FOR DELETE 
+TO anon, authenticated 
+USING (true);

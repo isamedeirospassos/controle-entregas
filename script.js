@@ -841,14 +841,20 @@ async function confirmarExclusao(id) {
         }
     }
 
-    const { error } = await supabaseClient
+    const { data: deletados, error } = await supabaseClient
         .from("movimentos")
         .delete()
-        .eq("id", id);
+        .eq("id", id)
+        .select();
 
     if (error) {
         console.error("Erro ao excluir:", error);
         showNotification("warning", "Erro", "Não foi possível excluir o registro: " + error.message);
+        return;
+    }
+
+    if (!deletados || deletados.length === 0) {
+        showNotification("warning", "Atenção", "O Supabase bloqueou a exclusão por falta de permissão de DELETE no banco.");
         return;
     }
 

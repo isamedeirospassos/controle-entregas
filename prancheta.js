@@ -596,14 +596,20 @@ async function excluirDia(dataStr) {
     const confirmado = confirm(`Deseja realmente excluir todos os registros do dia ${dataFormatada}?\n\nEsta ação removerá o dia do histórico e atualizará os totais financeiros.`);
     if (!confirmado) return;
 
-    const { error } = await supabaseClient
+    const { data: deletados, error } = await supabaseClient
         .from("prancheta_registros")
         .delete()
-        .eq("data", dataStr);
+        .eq("data", dataStr)
+        .select();
 
     if (error) {
         console.error("Erro ao excluir dia:", error);
         showToast("Erro", "Não foi possível excluir o dia: " + error.message, "warning");
+        return;
+    }
+
+    if (!deletados || deletados.length === 0) {
+        showToast("Aviso do Supabase", "O banco bloqueou a exclusão (falta de política de DELETE). Execute o comando SQL no Supabase para liberar.", "warning");
         return;
     }
 
