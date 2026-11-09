@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalhes do Dia | Prancheta de Rotas</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        :root {
+            --primary: #ee4d2d;
+            --primary-hover: #d74326;
+            --primary-light: #fff0ed;
+            --white: #ffffff;
+            --bg-color: #f5f5f5;
+            --text-dark: #222222;
+            --text-muted: #757575;
+            --border: #ebebeb;
+            --success: #26aa99;
+            --warning: #ffb500;
+            --danger: #ee4d2d;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+            --radius-md: 8px;
+            --radius-lg: 12px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-dark);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Topbar */
+        .topbar {
+            background-color: var(--white);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 24px;
+            box-shadow: var(--shadow-sm);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-area { display: flex; align-items: center; gap: 12px; }
+
+        .back-btn {
+            background: none; border: none; font-size: 24px;
+            color: var(--text-dark); cursor: pointer; transition: 0.2s;
+            display: flex; align-items: center; justify-content: center;
+            padding: 6px; border-radius: var(--radius-md); text-decoration: none;
+        }
+        .back-btn:hover { background-color: var(--bg-color); color: var(--primary); }
+
+        .logo-icon {
+            font-size: 26px; background: var(--primary-light);
+            color: var(--primary); padding: 8px; border-radius: var(--radius-md);
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .logo-text h1 { font-size: 18px; font-weight: 700; color: var(--primary); }
+        .logo-text p { font-size: 12px; color: var(--text-muted); }
+
+        /* Container */
+        .container {
+            max-width: 1000px;
+            margin: 24px auto;
+            padding: 0 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+        }
+        .card h3 {
+            font-size: 16px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-dark);
+        }
+        .card h3 i { color: var(--primary); font-size: 20px; }
+
+        /* Resumo do Dia */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+        }
+        .summary-card {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            padding: 16px 20px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .summary-card span {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .summary-card h2 { font-size: 22px; font-weight: 700; }
+        .border-success { border-left: 4px solid var(--success); }
+        .border-danger { border-left: 4px solid var(--danger); }
+        .border-primary { border-left: 4px solid var(--primary); }
+        .text-success { color: var(--success); }
+        .text-danger { color: var(--danger); }
+        .text-primary { color: var(--primary); }
+
+        /* Forms */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+        .form-grid-full { grid-column: 1 / -1; }
+        .input-group {
+            margin-bottom: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .input-group label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+        .input-group input, .input-group select, .input-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            outline: none;
+            transition: 0.2s;
+            background-color: var(--white);
+        }
+        .input-group input:focus, .input-group select:focus, .input-group textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-light);
+        }
+        .radio-group {
+            display: flex;
+            gap: 16px;
+            padding: 10px 0;
+        }
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+        .btn-primary { background-color: var(--primary); color: var(--white); }
+        .btn-primary:hover { background-color: var(--primary-hover); }
+        .btn-outline { background-color: transparent; border: 1px solid var(--border); color: var(--text-dark); }
+        .btn-outline:hover { background-color: var(--bg-color); }
+
+        .btn-actions-bar {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 10px;
+            margin-bottom: 30px;
+        }
+        .btn-actions-bar .btn {
+            min-width: 160px;
+        }
+
+        /* Toasts */
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 1000;
+        }
+        .toast {
+            background-color: var(--white);
+            padding: 16px;
+            border-radius: var(--radius-md);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 280px;
+            border-left: 4px solid var(--primary);
+            animation: slideIn 0.3s ease forwards;
+        }
+        .toast.success { border-left-color: var(--success); }
+        .toast.warning { border-left-color: var(--warning); }
+        .toast i { font-size: 24px; }
+        .toast.success i { color: var(--success); }
+        .toast.warning i { color: var(--warning); }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+
+        @media (max-width: 768px) {
+            .btn-actions-bar {
+                flex-direction: column-reverse;
+            }
+            .btn-actions-bar .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="topbar">
+        <div class="logo-area">
+            <a href="prancheta.html" class="back-btn" title="Voltar para a Prancheta">
+                <i class="ph ph-arrow-left"></i>
+            </a>
+            <div class="logo-icon"><i class="ph ph-calendar-check"></i></div>
+            <div class="logo-text">
+                <h1 id="page-title">Detalhes do Dia</h1>
+                <p id="page-subtitle">Visualização e edição completa da data</p>
+            </div>
+        </div>
+        <div>
+            <a href="prancheta.html" class="btn btn-outline" style="padding:8px 14px; font-size:13px;">
+                <i class="ph ph-arrow-u-up-left"></i> Voltar
+            </a>
+        </div>
+    </header>
+
+    <main class="container">
+
+        <!-- Resumo Financeiro da Data -->
+        <div class="summary-grid">
+            <div class="summary-card border-success">
+                <span><i class="ph ph-trend-up"></i> Total Recebido no Dia</span>
+                <h2 id="resumo-recebido" class="text-success">R$ 0,00</h2>
+                <small id="resumo-detalhe-recebido" style="color:var(--text-muted); font-size:11px;">Principal + Km + Pedágio</small>
+            </div>
+            <div class="summary-card border-danger">
+                <span><i class="ph ph-trend-down"></i> Total Gastos no Dia</span>
+                <h2 id="resumo-gastos" class="text-danger">R$ 0,00</h2>
+                <small id="resumo-detalhe-gastos" style="color:var(--text-muted); font-size:11px;">Abast + Manut + Despesas</small>
+            </div>
+            <div class="summary-card border-primary">
+                <span><i class="ph ph-wallet"></i> Saldo Líquido do Dia</span>
+                <h2 id="resumo-saldo" class="text-primary">R$ 0,00</h2>
+                <small id="resumo-detalhe-saldo" style="color:var(--text-muted); font-size:11px;">Recebido - Gastos</small>
+            </div>
+        </div>
+
+        <form id="form-detalhes">
+
+            <!-- Data do Registro (Editável) -->
+            <div class="card" style="border-left: 4px solid var(--primary);">
+                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <i class="ph ph-calendar" style="font-size:24px; color:var(--primary);"></i>
+                        <h3 style="margin-bottom:0;">Data do Registro</h3>
+                    </div>
+                    <div class="input-group" style="margin-bottom:0; min-width:220px;">
+                        <input type="date" id="detalhe-data">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dados da Rota -->
+            <div class="card">
+                <h3><i class="ph ph-map-pin-line"></i> Dados da Rota</h3>
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>Número da Rota</label>
+                        <input type="text" id="detalhe-rota-numero" placeholder="Ex: Rota 45">
+                    </div>
+                    <div class="input-group">
+                        <label>Tipo de Rota</label>
+                        <div class="radio-group">
+                            <label><input type="radio" name="detalhe-rota-tipo" value="Flex" checked> Flex</label>
+                            <label><input type="radio" name="detalhe-rota-tipo" value="Frota"> Frota</label>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Qtd Pacotes Iniciais</label>
+                        <input type="number" id="detalhe-rota-pacotes" min="0" placeholder="0">
+                    </div>
+                    <div class="input-group">
+                        <label>Qtd Devoluções</label>
+                        <input type="number" id="detalhe-rota-devolucoes" min="0" placeholder="0">
+                    </div>
+                    <div class="input-group">
+                        <label>Pacotes Entregues (Cálculo)</label>
+                        <input type="number" id="detalhe-rota-entregues" readonly style="background-color:var(--bg-color); font-weight:600;" placeholder="0">
+                    </div>
+                    <div class="input-group">
+                        <label>Valor Principal (R$ 4,00 / pacote entregue)</label>
+                        <input type="number" id="detalhe-rota-valor" step="0.01" placeholder="0.00" style="font-weight:600; color:var(--primary);">
+                    </div>
+                    <div class="input-group">
+                        <label>Valor Km Pago (R$)</label>
+                        <input type="number" id="detalhe-rota-valorkm" step="0.01" placeholder="0.00">
+                    </div>
+                    <div class="input-group">
+                        <label>Valor Pedágio (R$)</label>
+                        <input type="number" id="detalhe-rota-pedagio" step="0.01" placeholder="0.00">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quilometragem -->
+            <div class="card">
+                <h3><i class="ph ph-gauge"></i> Quilometragem</h3>
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>Km rodado no dia</label>
+                        <input type="number" id="detalhe-km-rodado" step="0.1" placeholder="0.0">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Abastecimento -->
+            <div class="card">
+                <h3><i class="ph ph-gas-pump"></i> Abastecimento</h3>
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>Tipo de Combustível</label>
+                        <select id="detalhe-abast-tipo">
+                            <option value="">Nenhum / Não informado</option>
+                            <option value="Gasolina">Gasolina</option>
+                            <option value="Álcool">Álcool</option>
+                            <option value="Diesel">Diesel</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Valor Abastecido (R$)</label>
+                        <input type="number" id="detalhe-abast-valor" step="0.01" placeholder="0.00">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manutenção do Carro -->
+            <div class="card">
+                <h3><i class="ph ph-wrench"></i> Manutenção do Carro</h3>
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>Categoria</label>
+                        <select id="detalhe-manut-categoria">
+                            <option value="">Nenhuma / Não informado</option>
+                            <option value="Troca de Óleo">Troca de Óleo</option>
+                            <option value="Mecânica">Mecânica</option>
+                            <option value="Pneu">Pneu</option>
+                            <option value="Outros">Outros</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Valor Total da Manutenção (R$)</label>
+                        <input type="number" id="detalhe-manut-valor" step="0.01" placeholder="0.00">
+                    </div>
+                    <div class="input-group">
+                        <label>O que foi feito?</label>
+                        <input type="text" id="detalhe-manut-feito" placeholder="Ex: Alinhamento, pastilhas...">
+                    </div>
+                    <div class="input-group">
+                        <label>Houve algum serviço adicional?</label>
+                        <select id="detalhe-manut-tem-extra">
+                            <option value="nao">Não</option>
+                            <option value="sim">Sim</option>
+                        </select>
+                    </div>
+
+                    <div id="detalhe-manut-extra-campos" class="form-grid-full" style="display: none;">
+                        <div class="form-grid">
+                            <div class="input-group">
+                                <label>Qual foi o serviço adicional?</label>
+                                <input type="text" id="detalhe-manut-extra-desc" placeholder="Ex: Lavagem...">
+                            </div>
+                            <div class="input-group">
+                                <label>Valor do Serviço Extra (R$)</label>
+                                <input type="number" id="detalhe-manut-extra-valor" step="0.01" min="0" placeholder="0.00">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Despesas Adicionais -->
+            <div class="card">
+                <h3><i class="ph ph-receipt"></i> Despesas Adicionais</h3>
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>Alimentação (R$)</label>
+                        <input type="number" id="detalhe-alimentacao" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                    <div class="input-group">
+                        <label>Perfumaria (R$)</label>
+                        <input type="number" id="detalhe-perfumaria" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                    <div class="input-group">
+                        <label>Outros Gastos (R$)</label>
+                        <input type="number" id="detalhe-outros" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Motivo da Alteração (Opcional) -->
+            <div class="card">
+                <h3><i class="ph ph-note-pencil"></i> Motivo da Alteração</h3>
+                <div class="input-group" style="margin-bottom:0;">
+                    <label>Motivo da alteração (opcional)</label>
+                    <textarea id="detalhe-motivo" rows="3" placeholder="Descreva o motivo desta alteração se desejar..."></textarea>
+                </div>
+            </div>
+
+            <!-- Botões de Ação -->
+            <div class="btn-actions-bar">
+                <a href="prancheta.html" class="btn btn-outline">
+                    <i class="ph ph-x"></i> Voltar
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="ph ph-floppy-disk"></i> Salvar Alterações
+                </button>
+            </div>
+
+        </form>
+
+    </main>
+
+    <!-- Toasts -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="detalhes-dia.js"></script>
+</body>
+</html>

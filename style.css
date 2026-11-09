@@ -571,19 +571,16 @@ tr:hover td {
 
 
 .modal-content{
-
     background:white;
-    width:350px;
-
+    width:90%;
+    max-width:420px;
+    max-height:90vh;
+    overflow-y:auto;
     padding:25px;
-
     border-radius:15px;
-
     display:flex;
     flex-direction:column;
-
-    gap:15px;
-
+    gap:12px;
 }
 
 

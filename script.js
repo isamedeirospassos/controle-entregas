@@ -87,6 +87,31 @@ document.addEventListener("DOMContentLoaded",()=>{
     carregarHistorico();
     carregarPendencias();
 
+    // Filtros e busca do Histórico
+    const buscaInput = document.getElementById("busca-historico");
+    if(buscaInput){
+        buscaInput.addEventListener("input", renderizarTabelaHistorico);
+    }
+
+    const filtroPessoa = document.getElementById("filtro-pessoa");
+    if(filtroPessoa){
+        filtroPessoa.addEventListener("change", renderizarTabelaHistorico);
+    }
+
+    const filtroData = document.getElementById("filtro-data");
+    if(filtroData){
+        filtroData.addEventListener("change", renderizarTabelaHistorico);
+    }
+
+    const btnOrdenar = document.querySelector(".filters .btn-outline");
+    if(btnOrdenar){
+        btnOrdenar.addEventListener("click", ()=>{
+            ordemCrescente = !ordemCrescente;
+            btnOrdenar.innerHTML = `<i class="ph ph-sort-${ordemCrescente ? 'descending' : 'ascending'}"></i> Ordenar`;
+            renderizarTabelaHistorico();
+        });
+    }
+
 
 
     // ===============================
@@ -500,11 +525,13 @@ function calcularSaldo(registros){
 
 
 // ===============================
-// HISTÓRICO
+// HISTÓRICO & FILTROS
 // ===============================
 
-async function carregarHistorico(){
+let movimentosCache = [];
+let ordemCrescente = false;
 
+async function carregarHistorico(){
 
     const {data,error} =
     await supabaseClient
@@ -513,152 +540,143 @@ async function carregarHistorico(){
     .order("data",{ascending:false})
     .order("id",{ascending:false});
 
-
-
     if(error){
-
-        console.log(error);
+        console.error("Erro ao carregar histórico:", error);
+        showNotification("warning", "Erro", "Não foi possível carregar histórico");
         return;
-
     }
 
+    movimentosCache = data || [];
+    renderizarTabelaHistorico();
+}
 
+function renderizarTabelaHistorico(){
+    const tabela = document.getElementById("historico-tabela");
+    if(!tabela) return;
 
-    const tabela =
-    document.getElementById(
-        "historico-tabela"
-    );
+    tabela.innerHTML = "";
 
+    const termoBusca = (document.getElementById("busca-historico")?.value || "").toLowerCase().trim();
+    const filtroPessoa = document.getElementById("filtro-pessoa")?.value || "";
+    const filtroData = document.getElementById("filtro-data")?.value || "";
 
+    const hoje = new Date();
 
-    if(!tabela){
+    let filtrados = movimentosCache.filter(item => {
+        // Filtro Pessoa
+        if (filtroPessoa && item.pessoa !== filtroPessoa) {
+            return false;
+        }
 
+        // Filtro Data
+        if (filtroData === "7") {
+            const limite = new Date();
+            limite.setDate(hoje.getDate() - 7);
+            const dataItem = new Date(item.data + "T00:00:00");
+            if (dataItem < limite) return false;
+        } else if (filtroData === "30" || filtroData === "") {
+            // Últimos 30 dias por padrão se vazio ou 30
+            const limite = new Date();
+            limite.setDate(hoje.getDate() - 30);
+            const dataItem = new Date(item.data + "T00:00:00");
+            if (dataItem < limite) return false;
+        }
+        // "all" passa direto
+
+        // Busca texto
+        if (termoBusca) {
+            const strItem = `${item.pessoa} ${item.data} ${item.tipo} ${item.status} ${item.valor} ${item.motivo_alteracao || ''}`.toLowerCase();
+            if (!strItem.includes(termoBusca)) return false;
+        }
+
+        return true;
+    });
+
+    filtrados.sort((a, b) => {
+        const da = new Date(a.data);
+        const db = new Date(b.data);
+        if (da.getTime() === db.getTime()) {
+            return ordemCrescente ? (a.id - b.id) : (b.id - a.id);
+        }
+        return ordemCrescente ? (da - db) : (db - da);
+    });
+
+    if (filtrados.length === 0) {
+        const trVazia = document.createElement("tr");
+        trVazia.innerHTML = `<td colspan="7" style="text-align:center; padding:24px; color:var(--text-muted);">Nenhum registro encontrado</td>`;
+        tabela.appendChild(trVazia);
         return;
-
     }
 
-
-
-    tabela.innerHTML="";
-
-
-
-    data.forEach(item=>{
-
-
-        const linha =
-        document.createElement("tr");
-
-
+    filtrados.forEach(item => {
+        const linha = document.createElement("tr");
 
         let nomePessoa = item.pessoa;
-
         const nomes = {
             isabella: "Isabella",
             pietro: "Pietro"
         };
-
         if(nomes[item.pessoa]){
             nomePessoa = nomes[item.pessoa];
         }
 
-        linha.innerHTML=`
-
+        linha.innerHTML = `
         <td>${nomePessoa}</td>
-
         <td>${formatarData(item.data)}</td>
-
-
         <td>
-
-        ${
-            item.tipo==="trabalho"
-
-            ?
-
-            `<span class="type-tag work">
-            🛵 Trabalho
-            </span>`
-
-            :
-
-            `<span class="type-tag pay">
-            💰 Pagamento
-            </span>`
-        }
-
+            ${
+                item.tipo === "trabalho"
+                ? `<span class="type-tag work">🛵 Trabalho</span>`
+                : `<span class="type-tag pay">💰 Pagamento</span>`
+            }
         </td>
-
-
+        <td>${formatarValor(Number(item.valor))}</td>
         <td>
-        ${formatarValor(Number(item.valor))}
+            ${
+                item.status === "pago"
+                ? `<span class="badge success-badge">Pago</span>`
+                : `<span class="badge warning-badge">Pendente</span>`
+            }
         </td>
-
-
         <td>
-
-        ${
-            item.status==="pago"
-
-            ?
-
-            `<span class="badge success-badge">
-            Pago
-            </span>`
-
-            :
-
-            `<span class="badge warning-badge">
-            Pendente
-            </span>`
-        }
-
+            ${
+                item.motivo_alteracao
+                ? `<span class="alteracao-info">✏️ ${escapeHtml(item.motivo_alteracao)}</span>`
+                : `<span class="sem-alteracao">-</span>`
+            }
         </td>
-
         <td>
-
-        ${
-            item.motivo_alteracao
-
-            ?
-
-            `
-            <span class="alteracao-info">
-                ✏️ ${item.motivo_alteracao}
-            </span>
-            `
-
-            :
-
-            `
-            <span class="sem-alteracao">
-                -
-            </span>
-            `
-        }
-
-        <td>
-
-        <button 
-        class="btn btn-outline"
-        onclick="abrirAlteracao(${item.id})">
-
-        ✏️ Alterar
-
-        </button>
-
+            <div style="display:flex; gap:6px;">
+                <button 
+                    class="btn btn-outline"
+                    style="padding:6px 10px; font-size:12px;"
+                    title="Editar registro"
+                    onclick="abrirAlteracao(${item.id})">
+                    ✏️ Alterar
+                </button>
+                <button 
+                    class="btn btn-outline"
+                    style="padding:6px 10px; font-size:12px; color:var(--danger); border-color:var(--danger);"
+                    title="Excluir registro"
+                    onclick="confirmarExclusao(${item.id})">
+                    🗑️ Excluir
+                </button>
+            </div>
         </td>
-
         `;
 
-
-
         tabela.appendChild(linha);
-
-
     });
+}
 
-
+function escapeHtml(str) {
+    if (!str) return "";
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 
@@ -883,139 +901,162 @@ function toggleMenu(){
 
 
 // ===============================
-// ALTERAR REGISTRO
+// ALTERAR / EXCLUIR REGISTRO
 // ===============================
 
 let idAlterando = null;
 
-
 // abrir modal
-
 function abrirAlteracao(id){
-
     console.log("Abrindo alteração ID:", id);
-
     idAlterando = id;
 
-
-    const modal = document.getElementById(
-        "modal-alterar"
-    );
-
-
-    if(modal){
-
-        modal.style.display = "flex";
-
-    }else{
-
-        console.log("Modal não encontrado");
-
+    const item = movimentosCache.find(m => Number(m.id) === Number(id));
+    if(!item){
+        console.error("Registro não encontrado em cache:", id);
+        return;
     }
 
+    const modal = document.getElementById("modal-alterar");
+    if(!modal) return;
+
+    // Preencher campos com dados atuais
+    const selPessoa = document.getElementById("edit-pessoa");
+    if(selPessoa) selPessoa.value = item.pessoa || "isabella";
+
+    const inputData = document.getElementById("edit-data");
+    if(inputData) inputData.value = item.data || "";
+
+    const selTipo = document.getElementById("edit-tipo");
+    if(selTipo) selTipo.value = item.tipo || "trabalho";
+
+    const selStatus = document.getElementById("edit-status");
+    if(selStatus) selStatus.value = item.status || "pendente";
+
+    const valorAtualEl = document.getElementById("edit-valor-atual");
+    if(valorAtualEl) {
+        valorAtualEl.innerText = `Valor cadastrado: ${formatarValor(Number(item.valor || 0))}`;
+    }
+
+    const inputNovoValor = document.getElementById("novo-valor");
+    if(inputNovoValor) {
+        inputNovoValor.value = "";
+    }
+
+    const txtMotivo = document.getElementById("motivo-alteracao");
+    if(txtMotivo) {
+        txtMotivo.value = item.motivo_alteracao || "";
+    }
+
+    modal.style.display = "flex";
 }
-
-
 
 // fechar modal
-
 function fecharAlteracao(){
-
     idAlterando = null;
+    const modal = document.getElementById("modal-alterar");
+    if(modal) modal.style.display = "none";
 
+    const inputNovoValor = document.getElementById("novo-valor");
+    if(inputNovoValor) inputNovoValor.value = "";
 
-    document.getElementById(
-        "modal-alterar"
-    ).style.display = "none";
-
-
-    document.getElementById(
-        "novo-valor"
-    ).value="";
-
-
-    document.getElementById(
-        "motivo-alteracao"
-    ).value="";
-
+    const txtMotivo = document.getElementById("motivo-alteracao");
+    if(txtMotivo) txtMotivo.value = "";
 }
 
-
-
 // salvar alteração
-
 async function salvarAlteracao(){
-
-    const novoValor =
-    document.getElementById("novo-valor").value;
-
-
-    const motivo =
-    document.getElementById("motivo-alteracao").value;
-
-    const teste = await supabaseClient
-    .from("movimentos")
-    .select("id, pessoa, data, valor")
-    .order("data", {ascending:false});
-
-
-    console.log("TODOS OS IDS:", teste.data);
-
-
-    console.log({
-        idAlterando,
-        novoValor,
-        motivo
-    });
-
-
-    const {data,error} =
-    await supabaseClient
-    .from("movimentos")
-    .update({
-
-        valor: Number(novoValor),
-        motivo_alteracao: motivo
-
-    })
-    .eq(
-        "id",
-        idAlterando
-    )
-    .select();
-
-
-    console.log("UPDATE:", data);
-    console.log("ERRO:", error);
-
-
-
-    if(error){
-
-        alert(
-            "Erro: " + error.message
-        );
-
+    if(!idAlterando){
+        showNotification("warning", "Erro", "Nenhum registro selecionado");
         return;
-
     }
 
+    const itemOriginal = movimentosCache.find(m => Number(m.id) === Number(idAlterando));
+    if(!itemOriginal){
+        showNotification("warning", "Erro", "Registro original não encontrado.");
+        return;
+    }
 
+    const pessoa = document.getElementById("edit-pessoa")?.value || itemOriginal.pessoa;
+    const data = document.getElementById("edit-data")?.value || itemOriginal.data;
+    const tipo = document.getElementById("edit-tipo")?.value || itemOriginal.tipo;
+    const status = document.getElementById("edit-status")?.value || itemOriginal.status;
+    const novoValorInput = document.getElementById("novo-valor")?.value ?? "";
+    const motivo = (document.getElementById("motivo-alteracao")?.value || "").trim();
 
-    showNotification(
-        "success",
-        "Alterado",
-        "Registro atualizado"
-    );
+    // Objeto de atualização
+    const dadosAtualizacao = {
+        pessoa: pessoa,
+        data: data,
+        tipo: tipo,
+        status: status,
+        motivo_alteracao: motivo || null,
+        alterado_em: new Date().toISOString()
+    };
 
+    // Regras de negócio solicitadas:
+    // - Campo "Valor alterado" vazio = manter valor original.
+    // - Campo com novo número = atualizar valor.
+    // - Valor 0 informado explicitamente = permitir zerar.
+    // - Alterar somente os campos modificados.
+    if(novoValorInput.trim() !== ""){
+        const num = Number(novoValorInput);
+        if(!isNaN(num)){
+            dadosAtualizacao.valor = num;
+        } else {
+            showNotification("warning", "Valor inválido", "Informe um número válido para o valor.");
+            return;
+        }
+    } else {
+        // Manter o valor original garantindo que não será zerado
+        dadosAtualizacao.valor = Number(itemOriginal.valor);
+    }
 
+    const { data: respData, error } = await supabaseClient
+        .from("movimentos")
+        .update(dadosAtualizacao)
+        .eq("id", idAlterando)
+        .select();
+
+    if(error){
+        console.error("Erro no update:", error);
+        showNotification("warning", "Erro", "Não foi possível atualizar: " + error.message);
+        return;
+    }
+
+    showNotification("success", "Alterado", "Registro atualizado com sucesso");
     fecharAlteracao();
 
+    await carregarDados();
+    await carregarHistorico();
+    await carregarPendencias();
+}
 
-    carregarDados();
-    carregarHistorico();
-    carregarPendencias();
+// excluir registro
+async function confirmarExclusao(id){
+    if(!id) return;
 
+    const item = movimentosCache.find(m => Number(m.id) === Number(id));
+    const desc = item ? `${item.pessoa} - ${formatarData(item.data)} (${formatarValor(Number(item.valor))})` : `ID ${id}`;
 
+    const confirmado = confirm(`Deseja realmente excluir este registro?\n\n${desc}\n\nEsta ação não poderá ser desfeita.`);
+    if(!confirmado) return;
+
+    const { error } = await supabaseClient
+        .from("movimentos")
+        .delete()
+        .eq("id", id);
+
+    if(error){
+        console.error("Erro ao excluir:", error);
+        showNotification("warning", "Erro", "Não foi possível excluir o registro: " + error.message);
+        return;
+    }
+
+    showNotification("success", "Excluído", "Registro removido com sucesso");
+
+    await carregarDados();
+    await carregarHistorico();
+    await carregarPendencias();
 }
 

@@ -11,1865 +11,555 @@ const supabaseClient = supabase.createClient(
     SUPABASE_KEY
 );
 
-
 // ======================================================
 // VARIÁVEIS GLOBAIS
 // ======================================================
 
 let baseDeDados = [];
-let idEditando = null;
-
 
 // ======================================================
 // INICIALIZAÇÃO
 // ======================================================
 
 document.addEventListener("DOMContentLoaded", async () => {
+    // Definir data padrão como a data atual
+    const inputData = document.getElementById("prancheta-data");
+    if (inputData && !inputData.value) {
+        const hoje = new Date().toISOString().split("T")[0];
+        inputData.value = hoje;
+    }
 
+    configurarCalculoPacotes();
     configurarServicoExtra();
-
-    configurarFormularioRota();
-    configurarFormularioKm();
-    configurarFormularioAbastecimento();
-    configurarFormularioManutencao();
+    configurarFormularioUnificado();
 
     await carregarRegistros();
-
 });
 
+// ======================================================
+// CÁLCULO AUTOMÁTICO DE PACOTES E DEVOLUÇÕES
+// ======================================================
+// Cada pacote entregue vale R$ 4,00.
+// Pacotes entregues = Pacotes iniciais - Devoluções.
+// Valor principal = Pacotes entregues * R$ 4,00.
+// Não permitir que devoluções ultrapassem os pacotes iniciais.
+
+function configurarCalculoPacotes() {
+    const inputPacotes = document.getElementById("rota-pacotes");
+    const inputDevolucoes = document.getElementById("rota-devolucoes");
+    const inputEntregues = document.getElementById("rota-pacotes-entregues");
+    const inputValor = document.getElementById("rota-valor");
+
+    if (!inputPacotes || !inputDevolucoes) return;
+
+    function recalcular() {
+        let pacotes = Math.max(0, parseInt(inputPacotes.value, 10) || 0);
+        let devolucoes = Math.max(0, parseInt(inputDevolucoes.value, 10) || 0);
+
+        if (pacotes > 0 && devolucoes > pacotes) {
+            devolucoes = pacotes;
+            inputDevolucoes.value = pacotes;
+            showToast("Aviso", "As devoluções não podem ultrapassar a quantidade inicial de pacotes.", "warning");
+        }
+
+        const entregues = Math.max(0, pacotes - devolucoes);
+
+        if (inputEntregues) {
+            inputEntregues.value = (inputPacotes.value !== "" || inputDevolucoes.value !== "") ? entregues : "";
+        }
+
+        if (inputValor) {
+            if (inputPacotes.value !== "" || inputDevolucoes.value !== "") {
+                const valorCalculado = entregues * 4.0;
+                inputValor.value = valorCalculado.toFixed(2);
+            }
+        }
+    }
+
+    inputPacotes.addEventListener("input", recalcular);
+    inputDevolucoes.addEventListener("input", recalcular);
+}
 
 // ======================================================
 // SERVIÇO EXTRA - SIM / NÃO
 // ======================================================
 
 function configurarServicoExtra() {
+    const select = document.getElementById("manut-tem-extra");
+    const campos = document.getElementById("manut-extra-campos");
+    const descricao = document.getElementById("manut-extra-desc");
+    const valor = document.getElementById("manut-extra-valor");
 
-    const select =
-        document.getElementById("manut-tem-extra");
-
-    const campos =
-        document.getElementById("manut-extra-campos");
-
-    const descricao =
-        document.getElementById("manut-extra-desc");
-
-    const valor =
-        document.getElementById("manut-extra-valor");
-
-
-    if (!select || !campos) {
-        return;
-    }
-
+    if (!select || !campos) return;
 
     function atualizarCamposExtra() {
-
         if (select.value === "sim") {
-
             campos.style.display = "block";
-
-            if (descricao) {
-                descricao.required = true;
-            }
-
-            if (valor) {
-                valor.required = true;
-            }
-
         } else {
-
             campos.style.display = "none";
-
-            if (descricao) {
-                descricao.required = false;
-                descricao.value = "";
-            }
-
-            if (valor) {
-                valor.required = false;
-                valor.value = "";
-            }
-
+            if (descricao) descricao.value = "";
+            if (valor) valor.value = "";
         }
-
     }
 
-
-    select.addEventListener(
-        "change",
-        atualizarCamposExtra
-    );
-
-
+    select.addEventListener("change", atualizarCamposExtra);
     atualizarCamposExtra();
-
 }
 
-
 // ======================================================
-// NOTIFICAÇÕES
+// NOTIFICAÇÕES (TOAST)
 // ======================================================
 
 function showToast(title, message, type = "success") {
-
-    const container =
-        document.getElementById("toast-container");
-
+    const container = document.getElementById("toast-container");
     if (!container) return;
 
-
-    const toast =
-        document.createElement("div");
-
-
+    const toast = document.createElement("div");
     toast.className = `toast ${type}`;
 
-
     let icon = "ph-check-circle";
-
-    if (type === "warning") {
-        icon = "ph-warning-circle";
-    }
-
+    if (type === "warning") icon = "ph-warning-circle";
 
     toast.innerHTML = `
         <i class="ph ${icon}"></i>
-
         <div>
             <strong>${title}</strong>
-
-            <p style="
-                font-size:12px;
-                color:var(--text-muted);
-                margin-top:2px;
-            ">
+            <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">
                 ${message}
             </p>
         </div>
     `;
 
-
     container.appendChild(toast);
 
-
     setTimeout(() => {
-
-        toast.style.animation =
-            "slideOut 0.3s ease forwards";
-
-
+        toast.style.animation = "slideOut 0.3s ease forwards";
         setTimeout(() => {
-
-            if (toast.parentNode) {
-                toast.remove();
-            }
-
+            if (toast.parentNode) toast.remove();
         }, 300);
-
-    }, 3000);
-
+    }, 3500);
 }
 
-
 // ======================================================
-// CARREGAR REGISTROS
+// CARREGAR REGISTROS DO SUPABASE
 // ======================================================
 
 async function carregarRegistros() {
-
-    const { data, error } =
-        await supabaseClient
-            .from("prancheta_registros")
-            .select("*")
-            .order(
-                "data",
-                { ascending: false }
-            )
-            .order(
-                "id",
-                { ascending: false }
-            );
-
+    const { data, error } = await supabaseClient
+        .from("prancheta_registros")
+        .select("*")
+        .order("data", { ascending: false })
+        .order("id", { ascending: false });
 
     if (error) {
-
-        console.error(
-            "Erro ao buscar registros:",
-            error
-        );
-
-        showToast(
-            "Erro",
-            error.message,
-            "warning"
-        );
-
+        console.error("Erro ao buscar registros:", error);
+        showToast("Erro", "Não foi possível carregar os registros: " + error.message, "warning");
         return;
     }
 
-
-    baseDeDados =
-        (data || []).map(converterRegistro);
-
+    baseDeDados = (data || []).map(converterRegistro);
 
     atualizarTabela();
-
     atualizarResumoFinanceiro();
-
 }
-
 
 // ======================================================
 // CONVERTER REGISTRO DO SUPABASE
 // ======================================================
 
 function converterRegistro(item) {
-
     return {
-
         id: item.id,
-
-        tipoRegistro:
-            item.tipo_registro,
-
-        data:
-            item.data,
-
+        tipoRegistro: item.tipo_registro,
+        data: item.data,
 
         // ROTA
-
-        rotaNumero:
-            item.rota_numero || "",
-
-        rotaTipo:
-            item.rota_tipo || "",
-
-        valor:
-            Number(item.valor || 0),
-
-        pacotes:
-            Number(item.pacotes || 0),
-
-        devolucoes:
-            Number(item.devolucoes || 0),
-
-        valorKm:
-            Number(item.valor_km || 0),
-
-        valorPedagio:
-            Number(item.valor_pedagio || 0),
-
+        rotaNumero: item.rota_numero || "",
+        rotaTipo: item.rota_tipo || "",
+        valor: Number(item.valor || 0),
+        pacotes: Number(item.pacotes || 0),
+        devolucoes: Number(item.devolucoes || 0),
+        valorKm: Number(item.valor_km || 0),
+        valorPedagio: Number(item.valor_pedagio || 0),
 
         // QUILOMETRAGEM
-
-        kmRodado:
-            Number(item.km_rodado || 0),
-
+        kmRodado: Number(item.km_rodado || 0),
 
         // ABASTECIMENTO
-
-        tipoCombustivel:
-            item.tipo_combustivel || "",
-
-        valorAbastecido:
-            Number(
-                item.valor_abastecido || 0
-            ),
-
+        tipoCombustivel: item.tipo_combustivel || "",
+        valorAbastecido: Number(item.valor_abastecido || 0),
 
         // MANUTENÇÃO
+        manutCategoria: item.manut_categoria || "",
+        manutValor: Number(item.manut_valor || 0),
+        manutFeito: item.manut_feito || "",
+        manutTemExtra: Boolean(item.manut_tem_extra),
+        manutExtraDesc: item.manut_extra_desc || "",
+        manutExtraValor: Number(item.manut_extra_valor || 0),
 
-        manutCategoria:
-            item.manut_categoria || "",
-
-        manutValor:
-            Number(
-                item.manut_valor || 0
-            ),
-
-        manutFeito:
-            item.manut_feito || "",
-
-        manutTemExtra:
-            Boolean(
-                item.manut_tem_extra
-            ),
-
-        manutExtraDesc:
-            item.manut_extra_desc || "",
-
-        manutExtraValor:
-            Number(
-                item.manut_extra_valor || 0
-            ),
-
+        // OUTRAS DESPESAS
+        alimentacao: Number(item.alimentacao || 0),
+        perfumaria: Number(item.perfumaria || 0),
+        outrosGastos: Number(item.outros_gastos || 0),
 
         // ALTERAÇÃO
-
-        motivo:
-            item.motivo || ""
-
+        motivo: item.motivo || ""
     };
-
 }
 
-
 // ======================================================
-// SALVAR ROTA
+// SALVAR TUDO (UNIFICADO)
 // ======================================================
 
-function configurarFormularioRota() {
-
-    const form =
-        document.getElementById("form-rota");
-
-
+function configurarFormularioUnificado() {
+    const form = document.getElementById("form-prancheta-unificado");
     if (!form) return;
 
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
 
-    form.addEventListener(
-        "submit",
-        async (e) => {
-
-            e.preventDefault();
-
-
-            const registro = {
-
-                tipo_registro: "Rota",
-
-                data:
-                    document.getElementById(
-                        "rota-data"
-                    ).value,
-
-                rota_numero:
-                    document.getElementById(
-                        "rota-numero"
-                    ).value.trim(),
-
-                rota_tipo:
-                    document.querySelector(
-                        'input[name="rota-tipo"]:checked'
-                    ).value,
-
-                valor:
-                    Number(
-                        document.getElementById(
-                            "rota-valor"
-                        ).value
-                    ) || 0,
-
-                pacotes:
-                    Number(
-                        document.getElementById(
-                            "rota-pacotes"
-                        ).value
-                    ) || 0,
-
-                devolucoes:
-                    Number(
-                        document.getElementById(
-                            "rota-devolucoes"
-                        ).value
-                    ) || 0,
-
-                valor_km:
-                    Number(
-                        document.getElementById(
-                            "rota-valorkm"
-                        ).value
-                    ) || 0,
-
-                valor_pedagio:
-                    Number(
-                        document.getElementById(
-                            "rota-pedagio"
-                        ).value
-                    ) || 0
-
-            };
-
-
-            const { error } =
-                await supabaseClient
-                    .from("prancheta_registros")
-                    .insert(registro);
-
-
-            if (error) {
-
-                console.error(error);
-
-                showToast(
-                    "Erro",
-                    "Não foi possível salvar a rota: " +
-                    error.message,
-                    "warning"
-                );
-
-                return;
-            }
-
-
-            form.reset();
-
-
-            const flex =
-                document.querySelector(
-                    'input[name="rota-tipo"][value="Flex"]'
-                );
-
-            if (flex) {
-                flex.checked = true;
-            }
-
-
-            showToast(
-                "Rota salva",
-                "Registro salvo no Supabase."
-            );
-
-
-            await carregarRegistros();
-
+        const dataStr = document.getElementById("prancheta-data")?.value;
+        if (!dataStr) {
+            showToast("Aviso", "Por favor, selecione uma data para o registro.", "warning");
+            return;
         }
-    );
 
+        // Ler dados da Rota
+        const rotaNumero = (document.getElementById("rota-numero")?.value || "").trim();
+        const rotaTipo = document.querySelector('input[name="rota-tipo"]:checked')?.value || "Flex";
+        const pacotes = parseInt(document.getElementById("rota-pacotes")?.value, 10) || 0;
+        let devolucoes = parseInt(document.getElementById("rota-devolucoes")?.value, 10) || 0;
+
+        if (devolucoes > pacotes) {
+            devolucoes = pacotes;
+            const inputDev = document.getElementById("rota-devolucoes");
+            if (inputDev) inputDev.value = devolucoes;
+        }
+
+        const entregues = Math.max(0, pacotes - devolucoes);
+        let valorPrincipal = parseFloat(document.getElementById("rota-valor")?.value);
+        if (isNaN(valorPrincipal) || valorPrincipal <= 0) {
+            valorPrincipal = entregues * 4.0;
+        }
+
+        const valorKm = parseFloat(document.getElementById("rota-valorkm")?.value) || 0;
+        const valorPedagio = parseFloat(document.getElementById("rota-pedagio")?.value) || 0;
+
+        // Ler Quilometragem
+        const kmRodado = parseFloat(document.getElementById("km-rodado")?.value) || 0;
+
+        // Ler Abastecimento
+        const tipoCombustivel = document.getElementById("abast-tipo")?.value || "";
+        const valorAbastecido = parseFloat(document.getElementById("abast-valor")?.value) || 0;
+
+        // Ler Manutenção
+        const manutCategoria = document.getElementById("manut-categoria")?.value || "";
+        const manutValor = parseFloat(document.getElementById("manut-valor")?.value) || 0;
+        const manutFeito = (document.getElementById("manut-feito")?.value || "").trim();
+        const manutTemExtra = document.getElementById("manut-tem-extra")?.value === "sim";
+        const manutExtraDesc = manutTemExtra ? (document.getElementById("manut-extra-desc")?.value || "").trim() : "";
+        const manutExtraValor = manutTemExtra ? (parseFloat(document.getElementById("manut-extra-valor")?.value) || 0) : 0;
+
+        // Ler Outras Despesas
+        const alimentacao = parseFloat(document.getElementById("despesa-alimentacao")?.value) || 0;
+        const perfumaria = parseFloat(document.getElementById("despesa-perfumaria")?.value) || 0;
+        const outrosGastos = parseFloat(document.getElementById("despesa-outros")?.value) || 0;
+
+        // Montar registro completo para o dia
+        const registroCompleto = {
+            data: dataStr,
+            tipo_registro: "Geral",
+            rota_numero: rotaNumero || null,
+            rota_tipo: rotaTipo,
+            pacotes: pacotes,
+            devolucoes: devolucoes,
+            valor: valorPrincipal,
+            valor_km: valorKm,
+            valor_pedagio: valorPedagio,
+            km_rodado: kmRodado,
+            tipo_combustivel: tipoCombustivel || null,
+            valor_abastecido: valorAbastecido,
+            manut_categoria: manutCategoria || null,
+            manut_valor: manutValor,
+            manut_feito: manutFeito || null,
+            manut_tem_extra: manutTemExtra,
+            manut_extra_desc: manutExtraDesc || null,
+            manut_extra_valor: manutExtraValor,
+            alimentacao: alimentacao,
+            perfumaria: perfumaria,
+            outros_gastos: outrosGastos
+        };
+
+        // Verificar se já existe algum registro nesta data
+        const { data: registrosExistentes, error: erroBusca } = await supabaseClient
+            .from("prancheta_registros")
+            .select("id, tipo_registro")
+            .eq("data", dataStr);
+
+        if (erroBusca) {
+            console.error("Erro ao verificar data existente:", erroBusca);
+        }
+
+        let salvarResultado = null;
+        let avisoSQLNecessario = false;
+
+        async function persistir(objeto, idExistente = null) {
+            if (idExistente) {
+                // Atualizar registro existente sem criar duplicatas
+                return await supabaseClient
+                    .from("prancheta_registros")
+                    .update(objeto)
+                    .eq("id", idExistente)
+                    .select();
+            } else {
+                // Inserir novo registro unificado
+                return await supabaseClient
+                    .from("prancheta_registros")
+                    .insert(objeto)
+                    .select();
+            }
+        }
+
+        const idAlvo = (registrosExistentes && registrosExistentes.length > 0) ? registrosExistentes[0].id : null;
+
+        // Tentar salvar com todas as colunas
+        salvarResultado = await persistir(registroCompleto, idAlvo);
+
+        // Se houver erro de coluna inexistente (ex: alimentacao, perfumaria, outros_gastos ainda não criadas via SQL)
+        if (salvarResultado.error && (salvarResultado.error.code === "42703" || salvarResultado.error.message?.includes("does not exist"))) {
+            console.warn("Colunas de despesas não encontradas no Supabase. Tentando salvar sem elas...", salvarResultado.error);
+            const semDespesas = { ...registroCompleto };
+            delete semDespesas.alimentacao;
+            delete semDespesas.perfumaria;
+            delete semDespesas.outros_gastos;
+
+            salvarResultado = await persistir(semDespesas, idAlvo);
+            avisoSQLNecessario = true;
+        }
+
+        if (salvarResultado.error) {
+            console.error("Erro ao salvar:", salvarResultado.error);
+            showToast("Erro ao Salvar", "Não foi possível salvar os dados: " + salvarResultado.error.message, "warning");
+            return;
+        }
+
+        // Sucesso!
+        if (avisoSQLNecessario) {
+            showToast(
+                "Salvo com Aviso",
+                "Dados salvos! Para salvar Alimentação, Perfumaria e Outros, execute o script SQL 'supabase_updates.sql' no Supabase.",
+                "warning"
+            );
+        } else {
+            showToast(
+                "Salvo com Sucesso",
+                idAlvo ? "Registro do dia atualizado no Supabase." : "Novo registro do dia cadastrado no Supabase."
+            );
+        }
+
+        // Limpar campos exceto a data
+        limparFormularioParcial();
+
+        await carregarRegistros();
+    });
 }
 
+function limparFormularioParcial() {
+    const ids = [
+        "rota-numero", "rota-pacotes", "rota-devolucoes", "rota-pacotes-entregues",
+        "rota-valor", "rota-valorkm", "rota-pedagio", "km-rodado",
+        "abast-valor", "manut-valor", "manut-feito", "manut-extra-desc", "manut-extra-valor",
+        "despesa-alimentacao", "despesa-perfumaria", "despesa-outros"
+    ];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+    });
 
-// ======================================================
-// SALVAR QUILOMETRAGEM
-// ======================================================
+    const abastTipo = document.getElementById("abast-tipo");
+    if (abastTipo) abastTipo.value = "";
 
-function configurarFormularioKm() {
+    const manutCat = document.getElementById("manut-categoria");
+    if (manutCat) manutCat.value = "";
 
-    const form =
-        document.getElementById("form-km");
+    const manutExtra = document.getElementById("manut-tem-extra");
+    if (manutExtra) {
+        manutExtra.value = "nao";
+        const extraCampos = document.getElementById("manut-extra-campos");
+        if (extraCampos) extraCampos.style.display = "none";
+    }
 
-
-    if (!form) return;
-
-
-    form.addEventListener(
-        "submit",
-        async (e) => {
-
-            e.preventDefault();
-
-
-            const registro = {
-
-                tipo_registro:
-                    "Quilometragem",
-
-                data:
-                    document.getElementById(
-                        "km-data"
-                    ).value,
-
-                km_rodado:
-                    Number(
-                        document.getElementById(
-                            "km-rodado"
-                        ).value
-                    ) || 0
-
-            };
-
-
-            const { error } =
-                await supabaseClient
-                    .from("prancheta_registros")
-                    .insert(registro);
-
-
-            if (error) {
-
-                console.error(error);
-
-                showToast(
-                    "Erro",
-                    "Não foi possível salvar a quilometragem: " +
-                    error.message,
-                    "warning"
-                );
-
-                return;
-            }
-
-
-            form.reset();
-
-
-            showToast(
-                "Quilometragem salva",
-                "Registro salvo no Supabase."
-            );
-
-
-            await carregarRegistros();
-
-        }
-    );
-
+    const flex = document.querySelector('input[name="rota-tipo"][value="Flex"]');
+    if (flex) flex.checked = true;
 }
-
-
-// ======================================================
-// SALVAR ABASTECIMENTO
-// ======================================================
-
-function configurarFormularioAbastecimento() {
-
-    const form =
-        document.getElementById(
-            "form-abastecimento"
-        );
-
-
-    if (!form) return;
-
-
-    form.addEventListener(
-        "submit",
-        async (e) => {
-
-            e.preventDefault();
-
-
-            const registro = {
-
-                tipo_registro:
-                    "Abastecimento",
-
-                data:
-                    document.getElementById(
-                        "abast-data"
-                    ).value,
-
-                tipo_combustivel:
-                    document.getElementById(
-                        "abast-tipo"
-                    ).value,
-
-                valor_abastecido:
-                    Number(
-                        document.getElementById(
-                            "abast-valor"
-                        ).value
-                    ) || 0
-
-            };
-
-
-            const { error } =
-                await supabaseClient
-                    .from("prancheta_registros")
-                    .insert(registro);
-
-
-            if (error) {
-
-                console.error(error);
-
-                showToast(
-                    "Erro",
-                    "Não foi possível salvar o abastecimento: " +
-                    error.message,
-                    "warning"
-                );
-
-                return;
-            }
-
-
-            form.reset();
-
-
-            showToast(
-                "Abastecimento salvo",
-                "Registro salvo no Supabase."
-            );
-
-
-            await carregarRegistros();
-
-        }
-    );
-
-}
-
-
-// ======================================================
-// SALVAR MANUTENÇÃO
-// ======================================================
-
-function configurarFormularioManutencao() {
-
-    const form =
-        document.getElementById(
-            "form-manutencao"
-        );
-
-
-    if (!form) return;
-
-
-    form.addEventListener(
-        "submit",
-        async (e) => {
-
-            e.preventDefault();
-
-
-            const temExtra =
-                document.getElementById(
-                    "manut-tem-extra"
-                ).value === "sim";
-
-
-            const descricaoExtra =
-                temExtra
-                    ? document.getElementById(
-                        "manut-extra-desc"
-                    ).value.trim()
-                    : "";
-
-
-            const valorExtra =
-                temExtra
-                    ? Number(
-                        document.getElementById(
-                            "manut-extra-valor"
-                        ).value
-                    ) || 0
-                    : 0;
-
-
-            if (
-                temExtra &&
-                !descricaoExtra
-            ) {
-
-                alert(
-                    "Informe qual foi o serviço adicional."
-                );
-
-                return;
-            }
-
-
-            if (
-                temExtra &&
-                valorExtra <= 0
-            ) {
-
-                alert(
-                    "Informe o valor do serviço adicional."
-                );
-
-                return;
-            }
-
-
-            const registro = {
-
-                tipo_registro:
-                    "Manutenção",
-
-                data:
-                    document.getElementById(
-                        "manut-data"
-                    ).value,
-
-                manut_categoria:
-                    document.getElementById(
-                        "manut-categoria"
-                    ).value,
-
-                manut_valor:
-                    Number(
-                        document.getElementById(
-                            "manut-valor"
-                        ).value
-                    ) || 0,
-
-                manut_feito:
-                    document.getElementById(
-                        "manut-feito"
-                    ).value.trim(),
-
-                manut_tem_extra:
-                    temExtra,
-
-                manut_extra_desc:
-                    descricaoExtra,
-
-                manut_extra_valor:
-                    valorExtra
-
-            };
-
-
-            const { error } =
-                await supabaseClient
-                    .from("prancheta_registros")
-                    .insert(registro);
-
-
-            if (error) {
-
-                console.error(error);
-
-                showToast(
-                    "Erro",
-                    "Não foi possível salvar a manutenção: " +
-                    error.message,
-                    "warning"
-                );
-
-                return;
-            }
-
-
-            form.reset();
-
-
-            const selectExtra =
-                document.getElementById(
-                    "manut-tem-extra"
-                );
-
-
-            if (selectExtra) {
-                selectExtra.value = "nao";
-            }
-
-
-            const camposExtra =
-                document.getElementById(
-                    "manut-extra-campos"
-                );
-
-
-            if (camposExtra) {
-                camposExtra.style.display =
-                    "none";
-            }
-
-
-            showToast(
-                "Manutenção salva",
-                "Registro salvo no Supabase."
-            );
-
-
-            await carregarRegistros();
-
-        }
-    );
-
-}
-
 
 // ======================================================
 // RESUMO FINANCEIRO
 // ======================================================
 
 function atualizarResumoFinanceiro() {
-
     let recebido = 0;
     let gasto = 0;
 
-
     baseDeDados.forEach(item => {
+        // Recebido da Rota (valor principal + km pago + pedágio)
+        recebido += Number(item.valor || 0) + Number(item.valorKm || 0) + Number(item.valorPedagio || 0);
 
-
-        // ROTA = dinheiro recebido
-
-        if (
-            item.tipoRegistro === "Rota"
-        ) {
-
-            recebido +=
-                Number(item.valor || 0) +
-                Number(item.valorKm || 0) +
-                Number(item.valorPedagio || 0);
-
-        }
-
-
-        // ABASTECIMENTO = gasto
-
-        else if (
-            item.tipoRegistro ===
-            "Abastecimento"
-        ) {
-
-            gasto +=
-                Number(
-                    item.valorAbastecido || 0
-                );
-
-        }
-
-
-        // MANUTENÇÃO = gasto
-
-        else if (
-            item.tipoRegistro ===
-            "Manutenção"
-        ) {
-
-            gasto +=
-                Number(item.manutValor || 0) +
-                Number(
-                    item.manutExtraValor || 0
-                );
-
-        }
-
+        // Gastos (abastecimento, manutenção, serviço extra, alimentação, perfumaria, outros)
+        gasto += Number(item.valorAbastecido || 0)
+            + Number(item.manutValor || 0)
+            + Number(item.manutExtraValor || 0)
+            + Number(item.alimentacao || 0)
+            + Number(item.perfumaria || 0)
+            + Number(item.outrosGastos || 0);
     });
 
+    const saldo = recebido - gasto;
 
-    const saldo =
-        recebido - gasto;
-
-
-    alterarTexto(
-        "total-recebido",
-        formatMoeda(recebido)
-    );
-
-
-    alterarTexto(
-        "total-gasto",
-        formatMoeda(gasto)
-    );
-
-
-    alterarTexto(
-        "total-saldo",
-        formatMoeda(saldo)
-    );
-
+    alterarTexto("total-recebido", formatMoeda(recebido));
+    alterarTexto("total-gasto", formatMoeda(gasto));
+    alterarTexto("total-saldo", formatMoeda(saldo));
 }
-
-
-// ======================================================
-// ALTERAR TEXTO
-// ======================================================
 
 function alterarTexto(id, texto) {
-
-    const elemento =
-        document.getElementById(id);
-
-
-    if (elemento) {
-        elemento.textContent = texto;
-    }
-
+    const el = document.getElementById(id);
+    if (el) el.textContent = texto;
 }
 
-
 // ======================================================
-// FORMATAR MOEDA
-// ======================================================
-
-function formatMoeda(valor) {
-
-    return Number(valor || 0)
-        .toLocaleString(
-            "pt-BR",
-            {
-                style: "currency",
-                currency: "BRL"
-            }
-        );
-
-}
-
-
-// ======================================================
-// FORMATAR DATA
-// ======================================================
-
-function formatData(dataStr) {
-
-    if (!dataStr) {
-        return "";
-    }
-
-
-    const partes =
-        dataStr.split("-");
-
-
-    if (partes.length !== 3) {
-        return dataStr;
-    }
-
-
-    return `${partes[2]}/${partes[1]}/${partes[0]}`;
-
-}
-
-
-// ======================================================
-// ATUALIZAR TABELA
+// ATUALIZAR TABELA DO HISTÓRICO (UMA LINHA POR DATA)
 // ======================================================
 
 function atualizarTabela() {
-
-    const tbody =
-        document.getElementById(
-            "historico-tbody"
-        );
-
-
+    const tbody = document.getElementById("historico-tbody");
     if (!tbody) return;
-
 
     tbody.innerHTML = "";
 
+    const filtroData = document.getElementById("filter-date")?.value || "";
 
-    const filtroTipo =
-        document.getElementById(
-            "filter-type"
-        )?.value || "Todos";
+    // Agrupar registros por data
+    const diasMap = new Map();
 
+    baseDeDados.forEach(item => {
+        if (!item.data) return;
 
-    const filtroData =
-        document.getElementById(
-            "filter-date"
-        )?.value || "";
-
-
-    let registros =
-        baseDeDados.filter(item => {
-
-
-            const passaTipo =
-                filtroTipo === "Todos" ||
-                item.tipoRegistro ===
-                filtroTipo;
-
-
-            const passaData =
-                !filtroData ||
-                item.data >= filtroData;
-
-
-            return (
-                passaTipo &&
-                passaData
-            );
-
-        });
-
-
-    registros.sort((a, b) => {
-
-        if (a.data === b.data) {
-
-            return (
-                Number(b.id) -
-                Number(a.id)
-            );
-
-        }
-
-
-        return (
-            new Date(b.data) -
-            new Date(a.data)
-        );
-
-    });
-
-
-    registros.forEach(item => {
-
-        const tr =
-            document.createElement("tr");
-
-
-        let badge = "";
-        let detalhes = "";
-        let valorPrincipal = "-";
-        let valoresDiversos = "-";
-        let valorTotal = 0;
-
-
-        // ==================================================
-        // ROTA
-        // ==================================================
-
-        if (
-            item.tipoRegistro ===
-            "Rota"
-        ) {
-
-            badge = `
-                <span class="type-badge type-rota">
-                    Rota
-                </span>
-            `;
-
-
-            detalhes = `
-                <b>${escapeHtml(item.rotaNumero)}</b>
-                (${escapeHtml(item.rotaTipo)})
-
-                <br>
-
-                <small>
-                    ${item.pacotes} pacotes |
-                    ${item.devolucoes} devoluções
-                </small>
-            `;
-
-
-            valorPrincipal =
-                formatMoeda(item.valor);
-
-
-            valoresDiversos = `
-                <small>
-                    Km pago:
-                    ${formatMoeda(item.valorKm)}
-                </small>
-
-                <br>
-
-                <small>
-                    Pedágio:
-                    ${formatMoeda(item.valorPedagio)}
-                </small>
-            `;
-
-
-            valorTotal =
-                Number(item.valor || 0) +
-                Number(item.valorKm || 0) +
-                Number(item.valorPedagio || 0);
-
-        }
-
-
-        // ==================================================
-        // QUILOMETRAGEM
-        // ==================================================
-
-        else if (
-            item.tipoRegistro ===
-            "Quilometragem"
-        ) {
-
-            badge = `
-                <span class="type-badge type-km">
-                    Km
-                </span>
-            `;
-
-
-            detalhes = `
-                <b>${item.kmRodado}</b>
-                km rodados
-            `;
-
-        }
-
-
-        // ==================================================
-        // ABASTECIMENTO
-        // ==================================================
-
-        else if (
-            item.tipoRegistro ===
-            "Abastecimento"
-        ) {
-
-            badge = `
-                <span class="type-badge type-abast">
-                    Abastecimento
-                </span>
-            `;
-
-
-            detalhes = `
-                Combustível:
-                <b>
-                    ${escapeHtml(
-                        item.tipoCombustivel
-                    )}
-                </b>
-            `;
-
-
-            valorPrincipal =
-                formatMoeda(
-                    item.valorAbastecido
-                );
-
-
-            valorTotal =
-                -Number(
-                    item.valorAbastecido || 0
-                );
-
-        }
-
-
-        // ==================================================
-        // MANUTENÇÃO
-        // ==================================================
-
-        else if (
-            item.tipoRegistro ===
-            "Manutenção"
-        ) {
-
-            badge = `
-                <span class="type-badge type-manut">
-                    Manutenção
-                </span>
-            `;
-
-
-            detalhes = `
-                <b>
-                    ${escapeHtml(
-                        item.manutCategoria
-                    )}
-                </b>
-
-                <br>
-
-                <small>
-                    ${escapeHtml(
-                        item.manutFeito
-                    )}
-                </small>
-            `;
-
-
-            valorPrincipal =
-                formatMoeda(
-                    item.manutValor
-                );
-
-
-            if (
-                item.manutTemExtra &&
-                item.manutExtraValor > 0
-            ) {
-
-                valoresDiversos = `
-                    <small>
-                        Serviço extra:
-                        ${escapeHtml(
-                            item.manutExtraDesc
-                        )}
-                    </small>
-
-                    <br>
-
-                    <small>
-                        Valor extra:
-                        ${formatMoeda(
-                            item.manutExtraValor
-                        )}
-                    </small>
-                `;
-
-            } else {
-
-                valoresDiversos = `
-                    <small>
-                        Sem serviço adicional
-                    </small>
-                `;
-
-            }
-
-
-            valorTotal =
-                -(
-                    Number(
-                        item.manutValor || 0
-                    ) +
-                    Number(
-                        item.manutExtraValor || 0
-                    )
-                );
-
-        }
-
-
-        const motivo =
-            item.motivo
-                ? `
-                    <br>
-
-                    <span style="
-                        font-size:11px;
-                        color:var(--warning);
-                    ">
-                        ✏️ Editado:
-                        ${escapeHtml(item.motivo)}
-                    </span>
-                `
-                : "";
-
-
-        tr.innerHTML = `
-
-            <td>
-                ${formatData(item.data)}
-            </td>
-
-            <td>
-                ${badge}
-            </td>
-
-            <td>
-                ${detalhes}
-            </td>
-
-            <td>
-                ${valorPrincipal}
-            </td>
-
-            <td>
-                ${valoresDiversos}
-            </td>
-
-            <td>
-                <b>
-                    ${
-                        valorTotal !== 0
-                            ? formatMoeda(valorTotal)
-                            : "-"
-                    }
-                </b>
-
-                ${motivo}
-            </td>
-
-            <td>
-
-                <button
-                    type="button"
-                    class="btn btn-outline"
-                    style="
-                        padding:6px 12px;
-                        font-size:12px;
-                    "
-                    onclick="abrirAlteracao(${item.id})"
-                >
-                    ✏️ Editar
-                </button>
-
-            </td>
-        `;
-
-
-        tbody.appendChild(tr);
-
-    });
-
-}
-
-
-// ======================================================
-// ESCAPAR HTML
-// ======================================================
-
-function escapeHtml(valor) {
-
-    return String(valor || "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-
-}
-
-
-// ======================================================
-// ABRIR MODAL DE ALTERAÇÃO
-// ======================================================
-
-function abrirAlteracao(id) {
-
-    idEditando = id;
-
-
-    const registro =
-        baseDeDados.find(
-            item =>
-                Number(item.id) ===
-                Number(id)
-        );
-
-
-    if (!registro) {
-
-        alert(
-            "Registro não encontrado."
-        );
-
-        return;
-    }
-
-
-    esconderGruposEdicao();
-
-
-    document.getElementById(
-        "edit-data"
-    ).value = registro.data || "";
-
-
-    document.getElementById(
-        "edit-motivo"
-    ).value = "";
-
-
-    // ==================================================
-    // ROTA
-    // ==================================================
-
-    if (
-        registro.tipoRegistro === "Rota"
-    ) {
-
-        mostrarGrupo(
-            "group-edit-rota"
-        );
-
-
-        document.getElementById(
-            "edit-rota-numero"
-        ).value =
-            registro.rotaNumero;
-
-
-        document.getElementById(
-            "edit-rota-tipo"
-        ).value =
-            registro.rotaTipo;
-
-
-        document.getElementById(
-            "edit-rota-valor"
-        ).value =
-            registro.valor;
-
-
-        document.getElementById(
-            "edit-rota-pacotes"
-        ).value =
-            registro.pacotes;
-
-
-        document.getElementById(
-            "edit-rota-devolucoes"
-        ).value =
-            registro.devolucoes;
-
-
-        document.getElementById(
-            "edit-rota-valorkm"
-        ).value =
-            registro.valorKm;
-
-
-        document.getElementById(
-            "edit-rota-pedagio"
-        ).value =
-            registro.valorPedagio;
-
-    }
-
-
-    // ==================================================
-    // QUILOMETRAGEM
-    // ==================================================
-
-    else if (
-        registro.tipoRegistro ===
-        "Quilometragem"
-    ) {
-
-        mostrarGrupo(
-            "group-edit-km"
-        );
-
-
-        document.getElementById(
-            "edit-km-rodado"
-        ).value =
-            registro.kmRodado;
-
-    }
-
-
-    // ==================================================
-    // ABASTECIMENTO
-    // ==================================================
-
-    else if (
-        registro.tipoRegistro ===
-        "Abastecimento"
-    ) {
-
-        mostrarGrupo(
-            "group-edit-abast"
-        );
-
-
-        document.getElementById(
-            "edit-abast-tipo"
-        ).value =
-            registro.tipoCombustivel;
-
-
-        document.getElementById(
-            "edit-abast-valor"
-        ).value =
-            registro.valorAbastecido;
-
-    }
-
-
-    // ==================================================
-    // MANUTENÇÃO
-    // ==================================================
-
-    else if (
-        registro.tipoRegistro ===
-        "Manutenção"
-    ) {
-
-        mostrarGrupo(
-            "group-edit-manut"
-        );
-
-
-        document.getElementById(
-            "edit-manut-categoria"
-        ).value =
-            registro.manutCategoria;
-
-
-        document.getElementById(
-            "edit-manut-valor"
-        ).value =
-            registro.manutValor;
-
-
-        document.getElementById(
-            "edit-manut-feito"
-        ).value =
-            registro.manutFeito;
-
-
-        document.getElementById(
-            "edit-manut-extra-desc"
-        ).value =
-            registro.manutExtraDesc;
-
-
-        document.getElementById(
-            "edit-manut-extra-valor"
-        ).value =
-            registro.manutExtraValor || "";
-
-    }
-
-
-    document.getElementById(
-        "modal-alterar"
-    ).style.display = "flex";
-
-}
-
-
-// ======================================================
-// ESCONDER GRUPOS DO MODAL
-// ======================================================
-
-function esconderGruposEdicao() {
-
-    [
-        "group-edit-rota",
-        "group-edit-km",
-        "group-edit-abast",
-        "group-edit-manut"
-    ].forEach(id => {
-
-        const elemento =
-            document.getElementById(id);
-
-        if (elemento) {
-
-            elemento.classList.add(
-                "hidden-group"
-            );
-
-        }
-
-    });
-
-}
-
-
-// ======================================================
-// MOSTRAR GRUPO
-// ======================================================
-
-function mostrarGrupo(id) {
-
-    const elemento =
-        document.getElementById(id);
-
-
-    if (elemento) {
-
-        elemento.classList.remove(
-            "hidden-group"
-        );
-
-    }
-
-}
-
-
-// ======================================================
-// FECHAR MODAL
-// ======================================================
-
-function fecharAlteracao() {
-
-    idEditando = null;
-
-
-    const modal =
-        document.getElementById(
-            "modal-alterar"
-        );
-
-
-    if (modal) {
-        modal.style.display = "none";
-    }
-
-
-    const motivo =
-        document.getElementById(
-            "edit-motivo"
-        );
-
-
-    if (motivo) {
-        motivo.value = "";
-    }
-
-}
-
-
-// ======================================================
-// SALVAR ALTERAÇÃO
-// ======================================================
-
-async function salvarAlteracao() {
-
-    if (!idEditando) {
-
-        alert(
-            "Nenhum registro selecionado."
-        );
-
-        return;
-    }
-
-
-    const registro =
-        baseDeDados.find(
-            item =>
-                Number(item.id) ===
-                Number(idEditando)
-        );
-
-
-    if (!registro) {
-
-        alert(
-            "Registro não encontrado."
-        );
-
-        return;
-    }
-
-
-    const motivo =
-        document.getElementById(
-            "edit-motivo"
-        ).value.trim();
-
-
-    if (!motivo) {
-
-        alert(
-            "Informe o motivo da alteração."
-        );
-
-        return;
-    }
-
-
-    const alteracoes = {
-
-        data:
-            document.getElementById(
-                "edit-data"
-            ).value,
-
-        motivo:
-            motivo
-
-    };
-
-
-    // ==================================================
-    // ROTA
-    // ==================================================
-
-    if (
-        registro.tipoRegistro ===
-        "Rota"
-    ) {
-
-        alteracoes.rota_numero =
-            document.getElementById(
-                "edit-rota-numero"
-            ).value.trim();
-
-
-        alteracoes.rota_tipo =
-            document.getElementById(
-                "edit-rota-tipo"
-            ).value.trim();
-
-
-        alteracoes.valor =
-            Number(
-                document.getElementById(
-                    "edit-rota-valor"
-                ).value
-            ) || 0;
-
-
-        alteracoes.pacotes =
-            Number(
-                document.getElementById(
-                    "edit-rota-pacotes"
-                ).value
-            ) || 0;
-
-
-        alteracoes.devolucoes =
-            Number(
-                document.getElementById(
-                    "edit-rota-devolucoes"
-                ).value
-            ) || 0;
-
-
-        alteracoes.valor_km =
-            Number(
-                document.getElementById(
-                    "edit-rota-valorkm"
-                ).value
-            ) || 0;
-
-
-        alteracoes.valor_pedagio =
-            Number(
-                document.getElementById(
-                    "edit-rota-pedagio"
-                ).value
-            ) || 0;
-
-    }
-
-
-    // ==================================================
-    // QUILOMETRAGEM
-    // ==================================================
-
-    else if (
-        registro.tipoRegistro ===
-        "Quilometragem"
-    ) {
-
-        alteracoes.km_rodado =
-            Number(
-                document.getElementById(
-                    "edit-km-rodado"
-                ).value
-            ) || 0;
-
-    }
-
-
-    // ==================================================
-    // ABASTECIMENTO
-    // ==================================================
-
-    else if (
-        registro.tipoRegistro ===
-        "Abastecimento"
-    ) {
-
-        alteracoes.tipo_combustivel =
-            document.getElementById(
-                "edit-abast-tipo"
-            ).value;
-
-
-        alteracoes.valor_abastecido =
-            Number(
-                document.getElementById(
-                    "edit-abast-valor"
-                ).value
-            ) || 0;
-
-    }
-
-
-    // ==================================================
-    // MANUTENÇÃO
-    // ==================================================
-
-    else if (
-        registro.tipoRegistro ===
-        "Manutenção"
-    ) {
-
-        alteracoes.manut_categoria =
-            document.getElementById(
-                "edit-manut-categoria"
-            ).value;
-
-
-        alteracoes.manut_valor =
-            Number(
-                document.getElementById(
-                    "edit-manut-valor"
-                ).value
-            ) || 0;
-
-
-        alteracoes.manut_feito =
-            document.getElementById(
-                "edit-manut-feito"
-            ).value.trim();
-
-
-        const descricaoExtra =
-            document.getElementById(
-                "edit-manut-extra-desc"
-            ).value.trim();
-
-
-        const valorExtra =
-            Number(
-                document.getElementById(
-                    "edit-manut-extra-valor"
-                ).value
-            ) || 0;
-
-
-        const temExtra =
-            descricaoExtra !== "" ||
-            valorExtra > 0;
-
-
-        if (
-            temExtra &&
-            (
-                descricaoExtra === "" ||
-                valorExtra <= 0
-            )
-        ) {
-
-            alert(
-                "Se houver serviço adicional, informe a descrição e o valor."
-            );
-
+        if (filtroData && item.data < filtroData) {
             return;
         }
 
+        if (!diasMap.has(item.data)) {
+            diasMap.set(item.data, {
+                data: item.data,
+                ids: [item.id],
+                valorPrincipal: 0,
+                kmPedagio: 0,
+                gastos: 0,
+                temEdicao: false
+            });
+        }
 
-        alteracoes.manut_tem_extra =
-            temExtra;
+        const dia = diasMap.get(item.data);
+        if (!dia.ids.includes(item.id)) dia.ids.push(item.id);
 
+        dia.valorPrincipal += Number(item.valor || 0);
+        dia.kmPedagio += Number(item.valorKm || 0) + Number(item.valorPedagio || 0);
+        dia.gastos += Number(item.valorAbastecido || 0)
+            + Number(item.manutValor || 0)
+            + Number(item.manutExtraValor || 0)
+            + Number(item.alimentacao || 0)
+            + Number(item.perfumaria || 0)
+            + Number(item.outrosGastos || 0);
 
-        alteracoes.manut_extra_desc =
-            temExtra
-                ? descricaoExtra
-                : "";
+        if (item.motivo) dia.temEdicao = true;
+    });
 
+    // Ordenar datas em ordem decrescente
+    const diasOrdenados = Array.from(diasMap.values()).sort((a, b) => new Date(b.data) - new Date(a.data));
 
-        alteracoes.manut_extra_valor =
-            temExtra
-                ? valorExtra
-                : 0;
-
-    }
-
-
-    const { error } =
-        await supabaseClient
-            .from("prancheta_registros")
-            .update(alteracoes)
-            .eq(
-                "id",
-                idEditando
-            );
-
-
-    if (error) {
-
-        console.error(error);
-
-        showToast(
-            "Erro",
-            "Não foi possível alterar: " +
-            error.message,
-            "warning"
-        );
-
+    if (diasOrdenados.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" style="text-align:center; padding:24px; color:var(--text-muted);">
+                    Nenhum registro encontrado no histórico.
+                </td>
+            </tr>
+        `;
         return;
     }
 
+    diasOrdenados.forEach(dia => {
+        const tr = document.createElement("tr");
 
-    fecharAlteracao();
+        const totalRecebido = dia.valorPrincipal + dia.kmPedagio;
+        const totalGastos = dia.gastos;
+        const saldoDia = totalRecebido - totalGastos;
 
+        const urlDetalhes = `detalhes-dia.html?data=${encodeURIComponent(dia.data)}`;
 
-    showToast(
-        "Registro atualizado",
-        "Alteração salva com sucesso."
-    );
+        tr.innerHTML = `
+            <td>
+                <a href="${urlDetalhes}" style="font-weight:600; color:var(--primary); text-decoration:none;" title="Abrir Detalhes do Dia">
+                    ${formatData(dia.data)}
+                </a>
+            </td>
+            <td>
+                <a href="${urlDetalhes}" style="font-weight:600; color:var(--text-dark); text-decoration:none;" title="Abrir Detalhes do Dia">
+                    ${formatMoeda(dia.valorPrincipal)}
+                </a>
+            </td>
+            <td>
+                <small>${formatMoeda(dia.kmPedagio)}</small>
+            </td>
+            <td>
+                <span class="text-success" style="font-weight:600;">
+                    ${formatMoeda(totalRecebido)}
+                </span>
+            </td>
+            <td>
+                <span class="text-danger" style="font-weight:600;">
+                    ${formatMoeda(totalGastos)}
+                </span>
+            </td>
+            <td>
+                <b style="color: ${saldoDia >= 0 ? 'var(--success)' : 'var(--danger)'};">
+                    ${formatMoeda(saldoDia)}
+                </b>
+                ${dia.temEdicao ? `<span style="font-size:11px; color:var(--warning); margin-left:4px;" title="Registro editado">✏️</span>` : ''}
+            </td>
+            <td>
+                <a href="${urlDetalhes}" class="btn btn-outline" style="padding:6px 12px; font-size:12px; width:auto; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
+                    👁️ Detalhes
+                </a>
+            </td>
+        `;
 
+        tbody.appendChild(tr);
+    });
+}
 
-    await carregarRegistros();
+function limparFiltroData() {
+    const input = document.getElementById("filter-date");
+    if (input) {
+        input.value = "";
+        atualizarTabela();
+    }
+}
 
+// ======================================================
+// FORMATADORES
+// ======================================================
+
+function formatMoeda(valor) {
+    return Number(valor || 0).toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL"
+    });
+}
+
+function formatData(dataStr) {
+    if (!dataStr) return "";
+    const partes = dataStr.split("-");
+    if (partes.length !== 3) return dataStr;
+    return `${partes[2]}/${partes[1]}/${partes[0]}`;
 }

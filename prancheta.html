@@ -210,18 +210,28 @@
             </div>
         </div>
         
-        <!-- Formulário: Dados da Rota -->
-        <div class="card">
-            <h3><i class="ph ph-map-pin-line"></i> Dados da Rota</h3>
-            <form id="form-rota">
+        <!-- Formulário Unificado: Salvar Tudo -->
+        <form id="form-prancheta-unificado">
+            <!-- Data Única -->
+            <div class="card" style="border-left: 4px solid var(--primary);">
+                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <i class="ph ph-calendar-blank" style="font-size:24px; color:var(--primary);"></i>
+                        <h3 style="margin-bottom:0;">Data do Registro</h3>
+                    </div>
+                    <div class="input-group" style="margin-bottom:0; min-width:220px;">
+                        <input type="date" id="prancheta-data">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dados da Rota -->
+            <div class="card">
+                <h3><i class="ph ph-map-pin-line"></i> Dados da Rota</h3>
                 <div class="form-grid">
                     <div class="input-group">
-                        <label>Data do Trabalho</label>
-                        <input type="date" id="rota-data" required>
-                    </div>
-                    <div class="input-group">
                         <label>Número da Rota</label>
-                        <input type="text" id="rota-numero" placeholder="Ex: Rota 45" required>
+                        <input type="text" id="rota-numero" placeholder="Ex: Rota 45">
                     </div>
                     <div class="input-group">
                         <label>Tipo de Rota</label>
@@ -231,92 +241,71 @@
                         </div>
                     </div>
                     <div class="input-group">
-                        <label>Valor Principal (R$)</label>
-                        <input type="number" id="rota-valor" step="0.01" placeholder="0.00" required>
-                    </div>
-                    <div class="input-group">
-                        <label>Qtd Pacotes</label>
-                        <input type="number" id="rota-pacotes" placeholder="0" required>
+                        <label>Qtd Pacotes Iniciais</label>
+                        <input type="number" id="rota-pacotes" placeholder="0" min="0">
                     </div>
                     <div class="input-group">
                         <label>Qtd Devoluções</label>
-                        <input type="number" id="rota-devolucoes" placeholder="0" required>
+                        <input type="number" id="rota-devolucoes" placeholder="0" min="0">
+                    </div>
+                    <div class="input-group">
+                        <label>Pacotes Entregues (Cálculo)</label>
+                        <input type="number" id="rota-pacotes-entregues" placeholder="0" readonly style="background-color:var(--bg-color); font-weight:600;">
+                    </div>
+                    <div class="input-group">
+                        <label>Valor Principal (R$ 4,00 / pacote)</label>
+                        <input type="number" id="rota-valor" step="0.01" placeholder="0.00" style="font-weight:600; color:var(--primary);">
                     </div>
                     <div class="input-group">
                         <label>Valor Km Pago (R$)</label>
-                        <input type="number" id="rota-valorkm" step="0.01" placeholder="0.00" required>
+                        <input type="number" id="rota-valorkm" step="0.01" placeholder="0.00">
                     </div>
                     <div class="input-group">
                         <label>Valor Pedágio (R$)</label>
-                        <input type="number" id="rota-pedagio" step="0.01" placeholder="0.00" required>
+                        <input type="number" id="rota-pedagio" step="0.01" placeholder="0.00">
                     </div>
                 </div>
-                <button type="submit" class="btn btn-primary" style="margin-top:8px;">
-                    <i class="ph ph-floppy-disk"></i> Salvar Rota
-                </button>
-            </form>
-        </div>
+            </div>
 
-        <!-- Formulário: Quilometragem -->
-        <div class="card">
-            <h3><i class="ph ph-gauge"></i> Quilometragem</h3>
-            <form id="form-km">
+            <!-- Quilometragem -->
+            <div class="card">
+                <h3><i class="ph ph-gauge"></i> Quilometragem</h3>
                 <div class="form-grid">
-                    <div class="input-group">
-                        <label>Data da Quilometragem</label>
-                        <input type="date" id="km-data" required>
-                    </div>
                     <div class="input-group">
                         <label>Km rodado no dia</label>
-                        <input type="number" id="km-rodado" step="0.1" placeholder="0.0" required>
+                        <input type="number" id="km-rodado" step="0.1" placeholder="0.0">
                     </div>
                 </div>
-                <button type="submit" class="btn btn-primary" style="margin-top:8px;">
-                    <i class="ph ph-floppy-disk"></i> Salvar Quilometragem
-                </button>
-            </form>
-        </div>
+            </div>
 
-        <!-- Formulário: Abastecimento -->
-        <div class="card">
-            <h3><i class="ph ph-gas-pump"></i> Abastecimento</h3>
-            <form id="form-abastecimento">
+            <!-- Abastecimento -->
+            <div class="card">
+                <h3><i class="ph ph-gas-pump"></i> Abastecimento</h3>
                 <div class="form-grid">
                     <div class="input-group">
-                        <label>Data do Abastecimento</label>
-                        <input type="date" id="abast-data" required>
-                    </div>
-                    <div class="input-group">
                         <label>Tipo de Combustível</label>
-                        <select id="abast-tipo" required>
-                            <option value="Álcool">Álcool</option>
+                        <select id="abast-tipo">
+                            <option value="">Selecione...</option>
                             <option value="Gasolina">Gasolina</option>
+                            <option value="Álcool">Álcool</option>
                             <option value="Diesel">Diesel</option>
                         </select>
                     </div>
                     <div class="input-group">
                         <label>Valor Abastecido (R$)</label>
-                        <input type="number" id="abast-valor" step="0.01" placeholder="0.00" required>
+                        <input type="number" id="abast-valor" step="0.01" placeholder="0.00">
                     </div>
                 </div>
-                <button type="submit" class="btn btn-primary" style="margin-top:8px;">
-                    <i class="ph ph-floppy-disk"></i> Salvar Abastecimento
-                </button>
-            </form>
-        </div>
+            </div>
 
-        <!-- Formulário: Manutenção do Carro -->
-        <div class="card">
-            <h3><i class="ph ph-wrench"></i> Manutenção do Carro</h3>
-            <form id="form-manutencao">
+            <!-- Manutenção do Carro -->
+            <div class="card">
+                <h3><i class="ph ph-wrench"></i> Manutenção do Carro</h3>
                 <div class="form-grid">
                     <div class="input-group">
-                        <label>Data da Manutenção</label>
-                        <input type="date" id="manut-data" required>
-                    </div>
-                    <div class="input-group">
                         <label>Categoria</label>
-                        <select id="manut-categoria" required>
+                        <select id="manut-categoria">
+                            <option value="">Selecione se houver...</option>
                             <option value="Troca de Óleo">Troca de Óleo</option>
                             <option value="Mecânica">Mecânica</option>
                             <option value="Pneu">Pneu</option>
@@ -324,17 +313,16 @@
                         </select>
                     </div>
                     <div class="input-group">
-                        <label>Valor Total (R$)</label>
-                        <input type="number" id="manut-valor" step="0.01" placeholder="0.00" required>
+                        <label>Valor Total da Manutenção (R$)</label>
+                        <input type="number" id="manut-valor" step="0.01" placeholder="0.00">
                     </div>
                     <div class="input-group">
                         <label>O que foi feito?</label>
-                        <input type="text" id="manut-feito" placeholder="Ex: Alinhamento e balanceamento..." required>
+                        <input type="text" id="manut-feito" placeholder="Ex: Alinhamento, troca de pastilhas...">
                     </div>
                     <div class="input-group">
                         <label>Houve algum serviço adicional?</label>
-
-                        <select id="manut-tem-extra" required>
+                        <select id="manut-tem-extra">
                             <option value="nao">Não</option>
                             <option value="sim">Sim</option>
                         </select>
@@ -342,56 +330,57 @@
 
                     <div id="manut-extra-campos" class="form-grid-full" style="display: none;">
                         <div class="form-grid">
-
                             <div class="input-group">
                                 <label>Qual foi o serviço adicional?</label>
-
-                                <input
-                                    type="text"
-                                    id="manut-extra-desc"
-                                    placeholder="Ex: Lavagem do carro..."
-                                >
+                                <input type="text" id="manut-extra-desc" placeholder="Ex: Lavagem do carro...">
                             </div>
-
                             <div class="input-group">
                                 <label>Valor do Serviço Extra (R$)</label>
-
-                                <input
-                                    type="number"
-                                    id="manut-extra-valor"
-                                    step="0.01"
-                                    min="0"
-                                    placeholder="0.00"
-                                >
+                                <input type="number" id="manut-extra-valor" step="0.01" min="0" placeholder="0.00">
                             </div>
-
                         </div>
                     </div>
                 </div>
-                <button type="submit" class="btn btn-primary" style="margin-top:8px;">
-                    <i class="ph ph-floppy-disk"></i> Salvar Manutenção
-                </button>
-            </form>
-        </div>
+            </div>
 
-        <!-- Histórico e Filtros -->
-        <div class="card">
-            <h3><i class="ph ph-list-dashes"></i> Histórico Completo</h3>
-            
-            <div class="filters-bar">
-                <div class="input-group">
-                    <label>Filtrar por Tipo</label>
-                    <select id="filter-type" onchange="atualizarTabela()">
-                        <option value="Todos">Todos os Registros</option>
-                        <option value="Rota">Rotas</option>
-                        <option value="Quilometragem">Quilometragem</option>
-                        <option value="Abastecimento">Abastecimento</option>
-                        <option value="Manutenção">Manutenção</option>
-                    </select>
+            <!-- Outras Despesas (Alimentação, Perfumaria e Outros) -->
+            <div class="card">
+                <h3><i class="ph ph-receipt"></i> Outras Despesas</h3>
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>Alimentação (R$)</label>
+                        <input type="number" id="despesa-alimentacao" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                    <div class="input-group">
+                        <label>Perfumaria (R$)</label>
+                        <input type="number" id="despesa-perfumaria" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                    <div class="input-group">
+                        <label>Outros Gastos (R$)</label>
+                        <input type="number" id="despesa-outros" step="0.01" min="0" placeholder="0.00">
+                    </div>
                 </div>
-                <div class="input-group">
-                    <label>Filtrar por Data Mínima</label>
-                    <input type="date" id="filter-date" onchange="atualizarTabela()">
+            </div>
+
+            <!-- Botão Unificado Salvar Tudo -->
+            <div style="margin-bottom: 24px;">
+                <button type="submit" id="btn-salvar-tudo" class="btn btn-primary" style="padding:16px; font-size:16px; box-shadow:var(--shadow-md);">
+                    <i class="ph ph-floppy-disk" style="font-size:20px;"></i> Salvar Tudo
+                </button>
+            </div>
+        </form>
+
+        <!-- Histórico da Prancheta -->
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+                <h3 style="margin-bottom:0;"><i class="ph ph-list-dashes"></i> Histórico da Prancheta</h3>
+                <div class="filters-bar" style="margin-bottom:0; padding:4px 8px;">
+                    <div class="input-group" style="min-width:160px;">
+                        <input type="date" id="filter-date" onchange="atualizarTabela()" title="Filtrar a partir desta data">
+                    </div>
+                    <button type="button" class="btn btn-outline" style="width:auto; padding:8px 12px; font-size:13px;" onclick="limparFiltroData()">
+                        Limpar Filtro
+                    </button>
                 </div>
             </div>
 
@@ -400,135 +389,21 @@
                     <thead>
                         <tr>
                             <th>Data</th>
-                            <th>Tipo</th>
-                            <th>Detalhes</th>
                             <th>Valor Principal</th>
-                            <th>Valores Diversos/Extras</th>
-                            <th>Valor Total</th>
+                            <th>Km / Pedágio</th>
+                            <th>Total Recebido</th>
+                            <th>Total Gastos</th>
+                            <th>Saldo do Dia</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
                     <tbody id="historico-tbody">
-                        <!-- Renderizado via JS -->
+                        <!-- Renderizado via JS: uma linha por data -->
                     </tbody>
                 </table>
             </div>
         </div>
 
-    </div>
-
-    <!-- Modal Universal de Edição -->
-    <div id="modal-alterar" class="modal">
-        <div class="modal-content">
-            <h3>Alterar Registro</h3>
-            
-            <div class="input-group">
-                <label>Data do Registro</label>
-                <input type="date" id="edit-data">
-            </div>
-
-            <!-- Grupo: ROTA -->
-            <div id="group-edit-rota" class="hidden-group">
-                <div class="form-grid">
-                    <div class="input-group">
-                        <label>Número da Rota</label>
-                        <input type="text" id="edit-rota-numero">
-                    </div>
-                    <div class="input-group">
-                        <label>Tipo (Flex/Frota)</label>
-                        <input type="text" id="edit-rota-tipo">
-                    </div>
-                    <div class="input-group">
-                        <label>Valor Principal (R$)</label>
-                        <input type="number" id="edit-rota-valor" step="0.01">
-                    </div>
-                    <div class="input-group">
-                        <label>Pacotes</label>
-                        <input type="number" id="edit-rota-pacotes">
-                    </div>
-                    <div class="input-group">
-                        <label>Devoluções</label>
-                        <input type="number" id="edit-rota-devolucoes">
-                    </div>
-                    <div class="input-group">
-                        <label>Valor Km Pago (R$)</label>
-                        <input type="number" id="edit-rota-valorkm" step="0.01">
-                    </div>
-                    <div class="input-group">
-                        <label>Valor Pedágio (R$)</label>
-                        <input type="number" id="edit-rota-pedagio" step="0.01">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Grupo: QUILOMETRAGEM -->
-            <div id="group-edit-km" class="hidden-group">
-                <div class="input-group">
-                    <label>Km Rodado no Dia</label>
-                    <input type="number" id="edit-km-rodado" step="0.1">
-                </div>
-            </div>
-
-            <!-- Grupo: ABASTECIMENTO -->
-            <div id="group-edit-abast" class="hidden-group">
-                <div class="form-grid">
-                    <div class="input-group">
-                        <label>Tipo de Combustível</label>
-                        <select id="edit-abast-tipo">
-                            <option value="Álcool">Álcool</option>
-                            <option value="Gasolina">Gasolina</option>
-                            <option value="Diesel">Diesel</option>
-                        </select>
-                    </div>
-                    <div class="input-group">
-                        <label>Valor Abastecido (R$)</label>
-                        <input type="number" id="edit-abast-valor" step="0.01">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Grupo: MANUTENÇÃO -->
-            <div id="group-edit-manut" class="hidden-group">
-                <div class="form-grid">
-                    <div class="input-group">
-                        <label>Categoria</label>
-                        <select id="edit-manut-categoria">
-                            <option value="Troca de Óleo">Troca de Óleo</option>
-                            <option value="Mecânica">Mecânica</option>
-                            <option value="Pneu">Pneu</option>
-                            <option value="Outros">Outros</option>
-                        </select>
-                    </div>
-                    <div class="input-group">
-                        <label>Valor Total (R$)</label>
-                        <input type="number" id="edit-manut-valor" step="0.01">
-                    </div>
-                    <div class="input-group form-grid-full">
-                        <label>O que foi feito?</label>
-                        <input type="text" id="edit-manut-feito">
-                    </div>
-                    <div class="input-group">
-                        <label>Teve valor extra?</label>
-                        <input type="text" id="edit-manut-extra-desc">
-                    </div>
-                    <div class="input-group">
-                        <label>Valor Extra (R$)</label>
-                        <input type="number" id="edit-manut-extra-valor" step="0.01">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Motivo Geral -->
-            <div class="input-group">
-                <label>Motivo da Alteração</label>
-                <textarea id="edit-motivo" placeholder="Descreva por que está alterando..." required></textarea>
-            </div>
-
-            <div class="modal-actions">
-                <button class="btn btn-outline" onclick="fecharAlteracao()">Cancelar</button>
-                <button class="btn btn-primary" onclick="salvarAlteracao()">Salvar Alteração</button>
-            </div>
-        </div>
     </div>
 
     <!-- Toasts -->
