@@ -480,7 +480,7 @@ function atualizarTabela() {
     if (diasOrdenados.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" style="text-align:center; padding:24px; color:var(--text-muted);">
+                <td colspan="4" style="text-align:center; padding:24px; color:var(--text-muted);">
                     Nenhum registro encontrado no histórico.
                 </td>
             </tr>
@@ -491,10 +491,7 @@ function atualizarTabela() {
     diasOrdenados.forEach(dia => {
         const tr = document.createElement("tr");
 
-        const totalRecebido = dia.valorPrincipal + dia.kmPedagio;
         const totalGastos = dia.gastos;
-        const saldoDia = totalRecebido - totalGastos;
-
         const urlDetalhes = `detalhes-dia.html?data=${encodeURIComponent(dia.data)}`;
 
         tr.innerHTML = `
@@ -507,14 +504,7 @@ function atualizarTabela() {
                 <a href="${urlDetalhes}" style="font-weight:600; color:var(--text-dark); text-decoration:none;" title="Abrir Detalhes do Dia">
                     ${formatMoeda(dia.valorPrincipal)}
                 </a>
-            </td>
-            <td>
-                <small>${formatMoeda(dia.kmPedagio)}</small>
-            </td>
-            <td>
-                <span class="text-success" style="font-weight:600;">
-                    ${formatMoeda(totalRecebido)}
-                </span>
+                ${dia.temEdicao ? `<span style="font-size:11px; color:var(--warning); margin-left:4px;" title="Registro com edição">✏️</span>` : ''}
             </td>
             <td>
                 <span class="text-danger" style="font-weight:600;">
@@ -522,20 +512,45 @@ function atualizarTabela() {
                 </span>
             </td>
             <td>
-                <b style="color: ${saldoDia >= 0 ? 'var(--success)' : 'var(--danger)'};">
-                    ${formatMoeda(saldoDia)}
-                </b>
-                ${dia.temEdicao ? `<span style="font-size:11px; color:var(--warning); margin-left:4px;" title="Registro editado">✏️</span>` : ''}
-            </td>
-            <td>
-                <a href="${urlDetalhes}" class="btn btn-outline" style="padding:6px 12px; font-size:12px; width:auto; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
-                    👁️ Detalhes
-                </a>
+                <div style="display:flex; gap:8px;">
+                    <a href="${urlDetalhes}" class="btn btn-outline" style="padding:6px 12px; font-size:12px; width:auto; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
+                        👁️ Detalhes
+                    </a>
+                    <button type="button" class="btn btn-outline" style="padding:6px 12px; font-size:12px; width:auto; color:var(--danger); border-color:var(--danger);" onclick="excluirDia('${dia.data}')">
+                        🗑️ Excluir
+                    </button>
+                </div>
             </td>
         `;
 
         tbody.appendChild(tr);
     });
+}
+
+// ======================================================
+// EXCLUIR DIA DA PRANCHETA
+// ======================================================
+
+async function excluirDia(dataStr) {
+    if (!dataStr) return;
+
+    const dataFormatada = formatData(dataStr);
+    const confirmado = confirm(`Deseja realmente excluir todos os registros do dia ${dataFormatada}?\n\nEsta ação removerá o dia do histórico e atualizará os totais financeiros.`);
+    if (!confirmado) return;
+
+    const { error } = await supabaseClient
+        .from("prancheta_registros")
+        .delete()
+        .eq("data", dataStr);
+
+    if (error) {
+        console.error("Erro ao excluir dia:", error);
+        showToast("Erro", "Não foi possível excluir o dia: " + error.message, "warning");
+        return;
+    }
+
+    showToast("Excluído", `Registros do dia ${dataFormatada} excluídos com sucesso.`);
+    await carregarRegistros();
 }
 
 function limparFiltroData() {

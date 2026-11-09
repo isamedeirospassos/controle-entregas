@@ -378,118 +378,86 @@ async function carregarDados(){
 
 function atualizarPessoa(nome, registros){
 
+    const trabalhos = registros.filter(item => item.tipo === "trabalho");
+    const pagamentosAvulsos = registros.filter(item => item.tipo === "pagamento");
 
-    const trabalhos =
-    registros.filter(
-        item=>item.tipo==="trabalho"
-    );
+    const trabalhosPendentes = trabalhos.filter(item => item.status === "pendente");
+    const trabalhosPagos = trabalhos.filter(item => item.status === "pago");
 
-
-    const pagamentos =
-    registros.filter(
-        item=>item.tipo==="pagamento"
-    );
-
-
-
-    const totalTrabalhado =
-    trabalhos.reduce(
-        (s,item)=>s+Number(item.valor),
+    // Total trabalhado (soma de todos os trabalhos realizados)
+    const totalTrabalhado = trabalhos.reduce(
+        (s, item) => s + Number(item.valor || 0),
         0
     );
 
-
-
-    const totalPago =
-    pagamentos.reduce(
-        (s,item)=>s+Number(item.valor),
+    // Total já pago: trabalhos marcados como pagos + pagamentos avulsos
+    const totalPagoTrabalhos = trabalhosPagos.reduce(
+        (s, item) => s + Number(item.valor || 0),
         0
     );
+    const totalPagamentosAvulsos = pagamentosAvulsos.reduce(
+        (s, item) => s + Number(item.valor || 0),
+        0
+    );
+    const totalPago = totalPagoTrabalhos + totalPagamentosAvulsos;
 
+    // Saldo pendente: trabalhos que continuam pendentes (descontando pagamentos avulsos excedentes)
+    const totalValorPendente = trabalhosPendentes.reduce(
+        (s, item) => s + Number(item.valor || 0),
+        0
+    );
+    const saldo = Math.max(0, totalValorPendente - totalPagamentosAvulsos);
 
-
-    const saldo =
-    totalTrabalhado-totalPago;
-
-
-
-    const dias =
-    trabalhos.length;
-
-
+    const dias = trabalhos.length;
 
     alterarTexto(
         `${nome}-total-trabalhado`,
         formatarValor(totalTrabalhado)
     );
 
-
     alterarTexto(
         `${nome}-total-pago`,
         formatarValor(totalPago)
     );
-
 
     alterarTexto(
         `${nome}-saldo-pendente`,
         formatarValor(saldo)
     );
 
-
     alterarTexto(
         `${nome}-dias-trabalhados`,
         `${dias} dias`
     );
-
-
 
     alterarTexto(
         `resumo-${nome}-dias`,
         dias
     );
 
-
     alterarTexto(
         `resumo-${nome}-total`,
         formatarValor(totalTrabalhado)
     );
-
 
     alterarTexto(
         `resumo-${nome}-recebido`,
         formatarValor(totalPago)
     );
 
-
     alterarTexto(
         `resumo-${nome}-falta`,
         formatarValor(saldo)
     );
 
-
 }
 
-
-
-
-
-function alterarTexto(id,valor){
-
-    const elemento =
-    document.getElementById(id);
-
-
+function alterarTexto(id, valor){
+    const elemento = document.getElementById(id);
     if(elemento){
-
         elemento.innerText = valor;
-
     }
-
 }
-
-
-
-
 
 // ===============================
 // CALCULAR SALDO
@@ -497,26 +465,15 @@ function alterarTexto(id,valor){
 
 function calcularSaldo(registros){
 
+    const trabalhosPendentes = registros
+        .filter(item => item.tipo === "trabalho" && item.status === "pendente")
+        .reduce((s, item) => s + Number(item.valor || 0), 0);
 
-    const trabalho =
-    registros
-    .filter(item=>item.tipo==="trabalho")
-    .reduce(
-        (s,item)=>s+Number(item.valor),
-        0
-    );
+    const pagamentosAvulsos = registros
+        .filter(item => item.tipo === "pagamento")
+        .reduce((s, item) => s + Number(item.valor || 0), 0);
 
-
-    const pagamento =
-    registros
-    .filter(item=>item.tipo==="pagamento")
-    .reduce(
-        (s,item)=>s+Number(item.valor),
-        0
-    );
-
-
-    return trabalho-pagamento;
+    return Math.max(0, trabalhosPendentes - pagamentosAvulsos);
 
 }
 
@@ -721,151 +678,78 @@ function formatarData(data){
 
 async function carregarPendencias(){
 
-
     const { data, error } =
     await supabaseClient
     .from("movimentos")
     .select("*");
 
-
-
     if(error){
-
-        console.log(
-            "Erro ao carregar pendências:",
-            error
-        );
-
+        console.log("Erro ao carregar pendências:", error);
         return;
-
     }
 
+    const container = document.getElementById("pagamentos-pendentes");
+    if(!container){
+        return;
+    }
 
+    container.innerHTML = "";
 
     const pessoas = [
         "isabella",
         "pietro"
     ];
 
-
-
-    const container =
-    document.getElementById(
-        "pagamentos-pendentes"
-    );
-
-
-
-    if(!container){
-
-        return;
-
-    }
-
-
-
-    container.innerHTML = "";
-
-
+    let temPendencia = false;
 
     pessoas.forEach(pessoa=>{
 
-
-        const registros =
-        data.filter(item =>
+        const registros = (data || []).filter(item =>
             item.pessoa === pessoa
         );
 
-
-
-        const totalTrabalho =
-        registros
-        .filter(item=>item.tipo==="trabalho")
-        .reduce(
-            (total,item)=>
-            total + Number(item.valor),
-            0
-        );
-
-
-
-        const totalPago =
-        registros
-        .filter(item=>item.tipo==="pagamento")
-        .reduce(
-            (total,item)=>
-            total + Number(item.valor),
-            0
-        );
-
-
-
-        const falta =
-        totalTrabalho-totalPago;
-
-
+        // Saldo pendente real da pessoa
+        const falta = calcularSaldo(registros);
 
         if(falta > 0){
+            temPendencia = true;
 
+            const trabalhosPendentes = registros
+                .filter(item => item.tipo === "trabalho" && item.status === "pendente")
+                .sort((a,b) => new Date(b.data) - new Date(a.data));
 
-            const ultimoTrabalho =
-            registros
-            .filter(item=>item.tipo==="trabalho")
-            .sort(
-                (a,b)=>
-                new Date(b.data)-new Date(a.data)
-            )[0];
+            const ultimoTrabalho = trabalhosPendentes[0] || registros.filter(item => item.tipo === "trabalho").sort((a,b) => new Date(b.data) - new Date(a.data))[0];
 
-
-
-            const data =
-            ultimoTrabalho
-            ? formatarData(ultimoTrabalho.data)
-            : "";
-
-
+            const dataFormatada = ultimoTrabalho ? formatarData(ultimoTrabalho.data) : "";
+            const nomeFormatado = pessoa === "isabella" ? "Isabella" : "Pietro";
 
             container.innerHTML += `
-
             <div class="pending-item">
-
                 <div class="pending-info">
-
                     <span class="dot red"></span>
-
-                    <strong>
-                        ${pessoa}
-                    </strong>
-
-                    <span class="date">
-                        ${data}
-                    </span>
-
+                    <strong>${nomeFormatado}</strong>
+                    <span class="date">${dataFormatada}</span>
                 </div>
-
-
                 <div class="pending-details">
-
-                    <span class="value">
-                        ${formatarValor(falta)}
-                    </span>
-
-
-                    <span class="badge warning-badge">
-                        Aguardando
-                    </span>
-
+                    <span class="value">${formatarValor(falta)}</span>
+                    <span class="badge warning-badge">Aguardando</span>
                 </div>
-
             </div>
-
             `;
-
-
         }
 
-
     });
+
+    if(!temPendencia){
+        container.innerHTML = `
+            <div style="padding: 16px; text-align: center; color: var(--text-muted); font-size: 13px;">
+                <i class="ph ph-check-circle" style="color: var(--success); font-size: 20px; vertical-align: middle; margin-right: 4px;"></i>
+                Nenhum pagamento pendente no momento.
+            </div>
+        `;
+    }
+
+}
 
 
 }
