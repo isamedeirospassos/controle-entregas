@@ -184,6 +184,15 @@ function showToast(title, message, type = "success") {
 // ======================================================
 
 async function carregarRegistros() {
+    if (isGuest()) {
+        // MODO TESTE: dados 100% isolados, NÃO carrega nada do Supabase do Admin!
+        const raw = DemoStore.getPrancheta();
+        baseDeDados = raw.map(converterRegistro);
+        atualizarTabela();
+        atualizarResumoFinanceiro();
+        return;
+    }
+
     const { data, error } = await supabaseClient
         .from("prancheta_registros")
         .select("*")
@@ -338,7 +347,24 @@ function configurarFormularioUnificado() {
             outros_gastos: outrosGastos
         };
 
-        // Verificar se já existe algum registro nesta data
+        if (isGuest()) {
+            // MODO TESTE: salva localmente sem encostar no banco do administrador
+            let lista = DemoStore.getPrancheta();
+            const index = lista.findIndex(r => r.data === dataStr);
+            const dados = { ...registroCompleto, id: index !== -1 ? lista[index].id : Date.now() };
+            if (index !== -1) {
+                lista[index] = dados;
+            } else {
+                lista.unshift(dados);
+            }
+            DemoStore.savePrancheta(lista);
+            showToast("Teste Salvo", "Registro do dia salvo no ambiente de teste!");
+            limparFormularioParcial();
+            await carregarRegistros();
+            return;
+        }
+
+        // Verificar se já existe algum registro nesta data (Administrador)
         const { data: registrosExistentes, error: erroBusca } = await supabaseClient
             .from("prancheta_registros")
             .select("id, tipo_registro")
@@ -595,6 +621,15 @@ async function excluirDia(dataStr) {
     const dataFormatada = formatData(dataStr);
     const confirmado = confirm(`Deseja realmente excluir todos os registros do dia ${dataFormatada}?\n\nEsta ação removerá o dia do histórico e atualizará os totais financeiros.`);
     if (!confirmado) return;
+
+    if (isGuest()) {
+        let lista = DemoStore.getPrancheta();
+        lista = lista.filter(r => r.data !== dataStr);
+        DemoStore.savePrancheta(lista);
+        showToast("Excluído", `Registros do dia ${dataFormatada} excluídos no ambiente de teste.`);
+        await carregarRegistros();
+        return;
+    }
 
     const { data: deletados, error } = await supabaseClient
         .from("prancheta_registros")

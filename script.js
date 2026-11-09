@@ -132,7 +132,30 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return;
             }
 
-            // Inserir registro no Supabase
+            if (isGuest()) {
+                // Modo Teste: salva apenas na memória local isolada
+                const lista = DemoStore.getMovimentos();
+                const novo = {
+                    id: Date.now(),
+                    pessoa: pessoa,
+                    data: data,
+                    tipo: "trabalho",
+                    valor: valorNum,
+                    status: "pendente",
+                    motivo_alteracao: null
+                };
+                lista.unshift(novo);
+                DemoStore.saveMovimentos(lista);
+                showNotification("success", "Teste Salvo", "Trabalho adicionado no ambiente de teste!");
+                document.getElementById("valor-trabalho").value = "";
+                document.getElementById("data-trabalho").value = hoje;
+                await carregarDados();
+                await carregarHistorico();
+                await carregarPendencias();
+                return;
+            }
+
+            // Inserir registro no Supabase (Administrador)
             const { data: inserido, error } = await supabaseClient
                 .from("movimentos")
                 .insert({
@@ -227,16 +250,23 @@ document.addEventListener("DOMContentLoaded", async () => {
 // ===============================
 
 async function carregarDados() {
-    const { data, error } = await supabaseClient
-        .from("movimentos")
-        .select("*");
+    let todos = [];
 
-    if (error) {
-        console.error("Erro ao carregar dados:", error);
-        return;
+    if (isGuest()) {
+        // MODO TESTE: dados 100% isolados em memória local, NUNCA acessa o Supabase do Admin
+        todos = DemoStore.getMovimentos();
+    } else {
+        // MODO ADMINISTRADOR: carrega os dados reais do Supabase
+        const { data, error } = await supabaseClient
+            .from("movimentos")
+            .select("*");
+
+        if (error) {
+            console.error("Erro ao carregar dados:", error);
+            return;
+        }
+        todos = data || [];
     }
-
-    const todos = data || [];
 
     // Atualizar Isabella e Pietro
     const saldoIsabella = atualizarPessoa("isabella", todos);
@@ -332,6 +362,12 @@ function alterarTexto(id, valor) {
 // ===============================
 
 async function carregarHistorico() {
+    if (isGuest()) {
+        movimentosCache = DemoStore.getMovimentos();
+        renderizarTabelaHistorico();
+        return;
+    }
+
     const { data, error } = await supabaseClient
         .from("movimentos")
         .select("*")
@@ -668,6 +704,26 @@ async function salvarAlteracao() {
         }
     }
 
+    if (isGuest()) {
+        const lista = DemoStore.getMovimentos();
+        const index = lista.findIndex(m => Number(m.id) === Number(idAlterando));
+        if (index !== -1) {
+            lista[index].pessoa = pessoa;
+            lista[index].data = data;
+            lista[index].tipo = tipo;
+            lista[index].status = status;
+            lista[index].valor = valorFinal;
+            lista[index].motivo_alteracao = motivo || null;
+            DemoStore.saveMovimentos(lista);
+        }
+        showNotification("success", "Alterado", "Registro atualizado no ambiente de teste!");
+        fecharAlteracao();
+        await carregarDados();
+        await carregarHistorico();
+        await carregarPendencias();
+        return;
+    }
+
     // Se o registro editado for TRABALHO
     if (itemOriginal.tipo === "trabalho" || tipo === "trabalho") {
 
@@ -819,6 +875,17 @@ async function salvarAlteracao() {
 
 async function confirmarExclusao(id) {
     if (!id) return;
+
+    if (isGuest()) {
+        let lista = DemoStore.getMovimentos();
+        lista = lista.filter(m => Number(m.id) !== Number(id));
+        DemoStore.saveMovimentos(lista);
+        showNotification("success", "Excluído", "Registro removido no ambiente de teste!");
+        await carregarDados();
+        await carregarHistorico();
+        await carregarPendencias();
+        return;
+    }
 
     const item = movimentosCache.find(m => Number(m.id) === Number(id));
     const desc = item ? `${item.pessoa === "isabella" ? "Isabella" : "Pietro"} - ${formatarData(item.data)} (${formatarValor(Number(item.valor))})` : `ID ${id}`;

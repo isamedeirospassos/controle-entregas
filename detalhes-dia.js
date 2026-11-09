@@ -57,16 +57,24 @@ function atualizarTituloPagina(dataStr) {
 // ======================================================
 
 async function carregarDadosDia(dataStr) {
-    const { data, error } = await supabaseClient
-        .from("prancheta_registros")
-        .select("*")
-        .eq("data", dataStr)
-        .order("id", { ascending: true });
+    let data = [];
 
-    if (error) {
-        console.error("Erro ao buscar dados do dia:", error);
-        showToast("Erro", "Não foi possível carregar os dados: " + error.message, "warning");
-        return;
+    if (isGuest()) {
+        const raw = DemoStore.getPrancheta();
+        data = raw.filter(r => r.data === dataStr);
+    } else {
+        const { data: supaData, error } = await supabaseClient
+            .from("prancheta_registros")
+            .select("*")
+            .eq("data", dataStr)
+            .order("id", { ascending: true });
+
+        if (error) {
+            console.error("Erro ao buscar dados do dia:", error);
+            showToast("Erro", "Não foi possível carregar os dados: " + error.message, "warning");
+            return;
+        }
+        data = supaData || [];
     }
 
     registrosOriginais = data || [];
@@ -414,6 +422,22 @@ function configurarFormulario() {
             motivo: motivo || null
         };
 
+        if (isGuest()) {
+            let lista = DemoStore.getPrancheta();
+            const index = lista.findIndex(r => r.data === dataOriginal || r.data === novaData);
+            const dados = { ...dadosAtualizacao, id: index !== -1 ? lista[index].id : Date.now() };
+            if (index !== -1) {
+                lista[index] = dados;
+            } else {
+                lista.unshift(dados);
+            }
+            DemoStore.savePrancheta(lista);
+            showToast("Sucesso", "Alterações salvas no ambiente de teste.");
+            dataOriginal = novaData;
+            await carregarDadosDia(novaData);
+            return;
+        }
+
         let erroOcorrido = null;
         let avisoSQLNecessario = false;
 
@@ -536,6 +560,15 @@ async function excluirEsteDia() {
     const dataFormatada = formatData(dataStr);
     const confirmado = confirm(`Deseja realmente excluir todos os registros do dia ${dataFormatada}?\n\nEsta ação removerá o dia do histórico e atualizará todos os resumos financeiros.`);
     if (!confirmado) return;
+
+    if (isGuest()) {
+        let lista = DemoStore.getPrancheta();
+        lista = lista.filter(r => r.data !== dataStr);
+        DemoStore.savePrancheta(lista);
+        alert(`Registros do dia ${dataFormatada} foram excluídos no ambiente de teste.`);
+        window.location.href = "prancheta.html";
+        return;
+    }
 
     const { data: deletados, error } = await supabaseClient
         .from("prancheta_registros")
