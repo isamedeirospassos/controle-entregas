@@ -3,7 +3,8 @@
 // ========================================================
 
 const AUTH_STORAGE_KEY = "entrega_user_role";
-const ADMIN_PASSWORD_HASH = "b4f2c088ef3919e91fe62ec6a2a0753051052697a51ad5e1e792b8d4f40a1b63"; // SHA-256 de 'Snoopy2010@'
+const ADMIN_PASSWORD_HASH = "506346b7fe7786456aacd09b060918b04fdf0613e3dbd519bfd2c6fd1894a217"; // SHA-256 de 'Snoopy2010@'
+const ADMIN_PLAIN_PASSWORD = "Snoopy2010@";
 
 // Chave para simulação local do modo teste no navegador do visitante
 const DEMO_MOVIMENTOS_KEY = "demo_local_movimentos";
